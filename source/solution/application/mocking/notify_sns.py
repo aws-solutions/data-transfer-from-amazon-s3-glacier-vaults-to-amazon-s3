@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Dict
 
 import boto3
 
+from solution.application import __boto_config__
 from solution.application.glacier_service.glacier_typing import GlacierJobType
 from solution.application.mocking.mock_glacier_apis import MockGlacierAPIs
 
@@ -30,10 +31,9 @@ def notify_sns_job_completion(
     retrieval_type: str,
     archive_id: str,
 ) -> None:
-    client: SNSClient = boto3.client("sns")
+    client: SNSClient = boto3.client("sns", config=__boto_config__)
     mock_client = MockGlacierAPIs()
     if retrieval_type == GlacierJobType.INVENTORY_RETRIEVAL:
-        inventory_size = mock_client.MOCK_DATA[vault_name]["inventory-metadata"]["size"]  # type: ignore
         message = {
             "Action": "InventoryRetrieval",
             "Completed": True,
@@ -42,7 +42,7 @@ def notify_sns_job_completion(
             "InventoryRetrievalParameters": {
                 "Format": "CSV",
             },
-            "InventorySizeInBytes": inventory_size,
+            "InventorySizeInBytes": mock_client.MOCK_DATA[vault_name]["inventory-metadata"]["size"],  # type: ignore
             "JobDescription": "Mock response from mock lambda",
             "JobId": job_id,
             "SNSTopic": sns_topic,
@@ -51,16 +51,9 @@ def notify_sns_job_completion(
             "VaultARN": f"arn:aws:glacier:{os.environ['AWS_REGION']}:{account_id}:vaults/{vault_name}",
         }
     else:
-        inventory_job_id = mock_client.MOCK_DATA[vault_name]["initiate-job"]["inventory-retrieval"]["jobId"]  # type: ignore
-
-        inventory_body = ""
-        if "body" in mock_client.MOCK_DATA[vault_name]["get-job-output"][inventory_job_id]:  # type: ignore
-            inventory_body = mock_client.MOCK_DATA[vault_name]["get-job-output"][inventory_job_id]["body"]  # type: ignore
-        else:
-            for key in mock_client.MOCK_DATA[vault_name]["get-job-output"][inventory_job_id]:  # type: ignore
-                if key.startswith("bytes"):
-                    inventory_body = mock_client.MOCK_DATA[vault_name]["get-job-output"][inventory_job_id][key]["body"]  # type: ignore
-                    break
+        inventory_body = generate_inventory_for_archive_retrieval(
+            vault_name, mock_client
+        )
 
         inventory_body_csv_str_list = inventory_body.splitlines()
         for line in inventory_body_csv_str_list:
@@ -98,3 +91,18 @@ def notify_sns_job_completion(
         Message=json.dumps(message),
         Subject="Notification From Mocking Glacier Service",
     )
+
+
+def generate_inventory_for_archive_retrieval(
+    vault_name: str, mock_client: MockGlacierAPIs
+) -> str:
+    inventory_job_id = mock_client.MOCK_DATA[vault_name]["initiate-job"]["inventory-retrieval"]["jobId"]  # type: ignore
+
+    if "body" in mock_client.MOCK_DATA[vault_name]["get-job-output"][inventory_job_id]:  # type: ignore
+        return mock_client.MOCK_DATA[vault_name]["get-job-output"][inventory_job_id]["body"]  # type: ignore
+
+    for key in mock_client.MOCK_DATA[vault_name]["get-job-output"][inventory_job_id]:  # type: ignore
+        if key.startswith("bytes"):
+            return mock_client.MOCK_DATA[vault_name]["get-job-output"][inventory_job_id][key]["body"]  # type: ignore
+
+    return ""

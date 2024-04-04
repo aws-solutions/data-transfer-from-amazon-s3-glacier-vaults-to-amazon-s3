@@ -6,14 +6,16 @@ SPDX-License-Identifier: Apache-2.0
 from typing import Any, Dict, List
 
 import boto3
-import botocore
+from botocore.config import Config
+
+__boto_config__ = Config(user_agent_extra="AwsSolution/SO0293/v1.1.0")
 
 
 def update_metric_table(
     pk: str, table_name: str, migration_type: str, dfc: Dict[str, Any]
 ) -> None:
     node_inputs = list(dfc.values())
-    client = boto3.client("dynamodb")
+    client = boto3.client("dynamodb", config=__boto_config__)
     if migration_type == "LAUNCH":
         _update_metric_table_for_new_run(node_inputs, pk, client, table_name)
     else:

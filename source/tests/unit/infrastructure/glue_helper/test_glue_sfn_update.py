@@ -285,3 +285,9 @@ def test_start_job(glue_sfn_update: GlueSfnUpdate) -> None:
     state_json = task.to_state_json()
     assert isinstance(task, GlueStartJobRun)
     assert state_json["Parameters"]["JobName"] == "test-job"
+    assert state_json["Parameters"]["Arguments"]["--enable-job-insights"] == "true"
+    assert (
+        state_json["Parameters"]["Arguments"]["--enable-continuous-cloudwatch-log"]
+        == "true"
+    )
+    assert state_json["Parameters"]["Arguments"]["--job-language"] == "python"

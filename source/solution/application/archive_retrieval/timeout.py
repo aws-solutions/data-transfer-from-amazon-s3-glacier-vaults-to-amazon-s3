@@ -16,7 +16,7 @@ from solution.application.model.partition_metric_record import PartitionMetricRe
 from solution.infrastructure.output_keys import OutputKeys
 
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(int(os.environ.get("LOGGING_LEVEL", logging.INFO)))
 
 
 def calculate_timeout(workflow_run: str) -> int:

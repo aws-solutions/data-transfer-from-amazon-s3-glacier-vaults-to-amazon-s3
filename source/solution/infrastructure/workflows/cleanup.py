@@ -31,7 +31,7 @@ class Workflow:
             raise ResourceNotFound("Completion checker trigger")
         if stack_info.parameters.enable_lambda_tracing_parameter is None:
             raise ResourceNotFound("Enable Lambda Tracing Parameter")
-        if stack_info.buckets.output_bucket is None:
+        if stack_info.interfaces.output_bucket is None:
             raise ResourceNotFound("Output Bucket")
         if stack_info.buckets.inventory_bucket is None:
             raise ResourceNotFound("Inventory Bucket")
@@ -184,7 +184,7 @@ class Workflow:
             memory_size=512,
             timeout=Duration.minutes(15),
         )
-        stack_info.buckets.output_bucket.grant_read_write(
+        stack_info.interfaces.output_bucket.grant_read_write(
             stack_info.lambdas.cleanup_incomplete_multipart_uploads_lambda
         )
 
@@ -196,7 +196,7 @@ class Workflow:
             payload=sfn.TaskInput.from_object(
                 {
                     "WorkflowRun.$": "$.workflow_run",
-                    "S3DestinationBucket": stack_info.buckets.output_bucket.bucket_name,
+                    "S3DestinationBucket": stack_info.interfaces.output_bucket.bucket_name,
                 }
             ),
             result_path="$.multipart_upload_cleanup",
@@ -246,12 +246,6 @@ class Workflow:
         )
 
         assert isinstance(
-            stack_info.buckets.output_bucket.node.default_child, CfnElement
-        )
-        output_bucket_logical_id = Stack.of(stack_info.scope).get_logical_id(
-            stack_info.buckets.output_bucket.node.default_child
-        )
-        assert isinstance(
             stack_info.lambdas.cleanup_incomplete_multipart_uploads_lambda.node.default_child,
             CfnElement,
         )
@@ -290,7 +284,7 @@ class Workflow:
                     "id": "AwsSolutions-IAM5",
                     "reason": "It's necessary to have wildcard permissions for s3 put object, to allow for copying glacier archives over to s3 in any location",
                     "appliesTo": [
-                        f"Resource::<{output_bucket_logical_id}.Arn>/*",
+                        "Resource::arn:<AWS::Partition>:s3:::<DestinationBucketParameter>/*",
                         "Action::s3:Abort*",
                         "Action::s3:DeleteObject*",
                         "Action::s3:GetBucket*",

@@ -49,11 +49,6 @@ def default_input() -> str:
 
 
 @pytest.fixture(scope="module")
-def sfn_client() -> Any:
-    return boto3.client("stepfunctions")
-
-
-@pytest.fixture(scope="module")
 def archives_list() -> List[Dict[str, Any]]:
     archives = []
     for key in MOCK_DATA[VAULT_NAME]["initiate-job"]:  # type: ignore
@@ -85,10 +80,11 @@ def archives_do_not_need_extension(
 
 @pytest.fixture(scope="module")
 def sfn_execution_arn(
-    default_input: str, archives_list: List[Dict[str, Any]], sfn_client: SFNClient
+    default_input: str,
+    archives_list: List[Dict[str, Any]],
+    sfn_client: SFNClient,
+    ddb_client: DynamoDBClient,
 ) -> str:
-    ddb_client: DynamoDBClient = boto3.client("dynamodb")
-
     for index, archive in enumerate(archives_list):
         archive_id = archive["archive_id"]
         download_window = archive["download_window"]
@@ -143,9 +139,8 @@ def setup() -> Any:
     )
 
 
-def test_state_machine_start_execution() -> None:
-    client: SFNClient = boto3.client("stepfunctions")
-    response = client.start_execution(
+def test_state_machine_start_execution(sfn_client: SFNClient) -> None:
+    response = sfn_client.start_execution(
         stateMachineArn=os.environ[OutputKeys.EXTEND_DOWNLOAD_WINDOW_STATE_MACHINE_ARN]
     )
     assert 200 == response["ResponseMetadata"]["HTTPStatusCode"]
@@ -186,8 +181,11 @@ def test_extend_retrieval_status_updated(
     archives_need_extension: List[Dict[str, Any]],
     sf_history_output: Any,
     sfn_client: SFNClient,
+    ddb_client: DynamoDBClient,
 ) -> None:
-    ddb_accessor = DynamoDBAccessor(os.environ[OutputKeys.GLACIER_RETRIEVAL_TABLE_NAME])
+    ddb_accessor = DynamoDBAccessor(
+        os.environ[OutputKeys.GLACIER_RETRIEVAL_TABLE_NAME], client=ddb_client
+    )
 
     for archive in archives_need_extension:
         archive_id = archive["archive_id"]
@@ -207,8 +205,11 @@ def test_not_needing_extension_retrieval_status_not_updated(
     archives_do_not_need_extension: List[Dict[str, Any]],
     sf_history_output: Any,
     sfn_client: SFNClient,
+    ddb_client: DynamoDBClient,
 ) -> None:
-    ddb_accessor = DynamoDBAccessor(os.environ[OutputKeys.GLACIER_RETRIEVAL_TABLE_NAME])
+    ddb_accessor = DynamoDBAccessor(
+        os.environ[OutputKeys.GLACIER_RETRIEVAL_TABLE_NAME], client=ddb_client
+    )
 
     for archive in archives_do_not_need_extension:
         archive_id = archive["archive_id"]

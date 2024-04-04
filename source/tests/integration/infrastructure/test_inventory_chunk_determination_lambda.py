@@ -17,26 +17,26 @@ else:
     LambdaClient = object
 
 
-def test_lambda_invoke() -> None:
-    client: LambdaClient = boto3.client("lambda")
+def test_lambda_invoke(lambda_client: LambdaClient) -> None:
     lambda_name = os.environ[OutputKeys.INVENTORY_CHUNK_DETERMINATION_LAMBDA_ARN]
 
     test_event = '{"TotalSize": 100, "ChunkSize": 10}'
 
-    client.invoke(
+    lambda_client.invoke(
         FunctionName=lambda_name,
         InvocationType="RequestResponse",
         Payload=test_event,
     )
 
 
-def test_lambda_invoke_incomplete_parameters_request() -> None:
-    client: LambdaClient = boto3.client("lambda")
+def test_lambda_invoke_incomplete_parameters_request(
+    lambda_client: LambdaClient,
+) -> None:
     lambda_name = os.environ[OutputKeys.INVENTORY_CHUNK_DETERMINATION_LAMBDA_ARN]
 
     test_event = '{"InventorySize": 100}'
 
-    response = client.invoke(
+    response = lambda_client.invoke(
         FunctionName=lambda_name,
         InvocationType="RequestResponse",
         Payload=test_event,

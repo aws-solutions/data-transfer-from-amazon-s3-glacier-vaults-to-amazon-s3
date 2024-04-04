@@ -53,6 +53,8 @@ class InvalidLambdaParameter(Exception):
 
 
 class MaximumRetryLimitExceeded(Exception):
-    def __init__(self) -> None:
-        self.message = f"Maximum retry limit exceeded."
+    def __init__(self, max_retries: int, message: str) -> None:
+        self.message = (
+            f"Maximum retry limit {max_retries} exceeded. Exception: {message}"
+        )
         super().__init__(self.message)

@@ -23,10 +23,11 @@ def retry(max_retries: int = 3, raise_exception: bool = False) -> Callable[..., 
                 except Exception as e:
                     logger.error(f"Exception occurred: {str(e)}")
                     logger.error(f"Retrying... (Attempt {retry + 1}/{max_retries})")
+                    last_exception = e
             else:
-                logger.info("Maximum retry limit exceeded. Exiting...")
+                logger.info(f"Maximum retry limit {max_retries} exceeded. Exiting...")
                 if raise_exception:
-                    raise MaximumRetryLimitExceeded()
+                    raise MaximumRetryLimitExceeded(max_retries, str(last_exception))
 
         return wrapper
 

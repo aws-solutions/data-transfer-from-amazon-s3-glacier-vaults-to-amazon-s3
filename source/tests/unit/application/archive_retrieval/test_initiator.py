@@ -3,18 +3,17 @@ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 """
 import os
-from typing import TYPE_CHECKING, Iterator, List, Tuple
+from typing import TYPE_CHECKING, Any, Callable, Iterator, List, Tuple
+from unittest.mock import patch
 
 import pytest
+from botocore.config import Config
 from mypy_boto3_dynamodb import DynamoDBClient
-from mypy_boto3_dynamodb.type_defs import (
-    CreateTableOutputTypeDef,
-    GetItemOutputTypeDef,
-    PutItemOutputTypeDef,
-)
 from mypy_boto3_glacier.client import GlacierClient
 
+from solution.application import __boto_config__
 from solution.application.archive_retrieval.initiator import (
+    extend_retrieval,
     initiate_request,
     initiate_retrieval,
 )
@@ -236,3 +235,21 @@ def glacier_retrieval_put_item(
             "retrieve_status": {"S": f"{workflow_run}/{status}"},
         },
     )
+
+
+@pytest.mark.parametrize("functions", [extend_retrieval, initiate_retrieval])
+def test_user_agent_on_dynamodb_client(
+    solution_user_agent: str,
+    glacier_client: GlacierClient,
+    functions: Callable[[str, str, List[Any], GlacierClient], None],
+) -> None:
+    with patch("boto3.client") as mock_client:
+        functions("", "", [], glacier_client)
+        _config = mock_client.call_args[1]["config"]
+        assert type(_config) is Config
+
+        _config_user_agent_extra = _config.__getattribute__("user_agent_extra")
+        assert _config_user_agent_extra == __boto_config__.__getattribute__(
+            "user_agent_extra"
+        )
+        assert _config_user_agent_extra == solution_user_agent

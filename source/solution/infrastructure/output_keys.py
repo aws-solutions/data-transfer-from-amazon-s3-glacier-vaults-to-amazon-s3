@@ -53,3 +53,13 @@ class OutputKeys:
     GLACIER_RETRIEVAL_JOB_INDEX_NAME = "GlacierRetrievalJobIndexName"
     ARCHIVES_STATUS_CLEANUP_STATE_MACHINE_ARN = "ArchivesStatusCleanupStateMachineArn"
     MOCK_NOTIFY_SNS_LAMBDA_ARN = "MockNotifySnsLambdaArn"
+    CLOUDWATCH_DASHBOARD_UPDATE_RULE_NAME = "CloudWatchDashboardUpdateRuleName"
+    WORKFLOW_COMPLETION_CHECKER_RULE_NAME = "WorkflowCompletionCheckerRuleName"
+    EXTEND_DOWNLOAD_WINDOW_RULE_NAME = "ExtendDownloadWindowRuleName"
+    LOGS_INSIGHTS_QUERY_NAME = "LogsInsightsQueryName"
+    LOGS_INSIGHTS_REQUESTED_COUNTER_QUERY_NAME = "LogsInsightsRequestedCounterQueryName"
+    LOGS_INSIGHTS_STAGED_COUNTER_QUERY_NAME = "LogsInsightsStagedCounterQueryName"
+    LOGS_INSIGHTS_DOWNLOADED_COUNTER_QUERY_NAME = (
+        "LogsInsightsDownloadedCounterQueryName"
+    )
+    METRIC_UPDATE_LAMBDA_NAME = "MetricUpdateLambdaName"

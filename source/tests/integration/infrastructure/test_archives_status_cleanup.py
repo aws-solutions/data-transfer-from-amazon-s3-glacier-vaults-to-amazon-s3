@@ -25,9 +25,10 @@ def default_input() -> str:
     return json.dumps({"workflow_run": WORKFLOW_RUN})
 
 
-def test_state_machine_start_execution(default_input: str) -> None:
-    client: SFNClient = boto3.client("stepfunctions")
-    response = client.start_execution(
+def test_state_machine_start_execution(
+    default_input: str, sfn_client: SFNClient
+) -> None:
+    response = sfn_client.start_execution(
         stateMachineArn=os.environ[
             OutputKeys.ARCHIVES_STATUS_CLEANUP_STATE_MACHINE_ARN
         ],

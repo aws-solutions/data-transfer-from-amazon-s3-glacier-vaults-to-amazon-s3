@@ -19,7 +19,7 @@ class Workflow:
             raise ResourceNotFound("Glacier retrieval table")
         if stack_info.tables.metric_table is None:
             raise ResourceNotFound("Metric table")
-        if stack_info.buckets.output_bucket is None:
+        if stack_info.interfaces.output_bucket is None:
             raise ResourceNotFound("Output bucket")
         if stack_info.policies.get_job_output_policy is None:
             raise ResourceNotFound("Get job output policy")
@@ -53,7 +53,7 @@ class Workflow:
             )
         )
 
-        stack_info.buckets.output_bucket.grant_put(
+        stack_info.interfaces.output_bucket.grant_put(
             stack_info.lambdas.chunk_retrieval_lambda
         )
 
@@ -114,7 +114,7 @@ class Workflow:
             stack_info.lambdas.archive_validation_lambda
         )
 
-        stack_info.buckets.output_bucket.grant_read_write(
+        stack_info.interfaces.output_bucket.grant_read_write(
             stack_info.lambdas.archive_validation_lambda
         )
 
@@ -151,13 +151,6 @@ class Workflow:
         )
 
         assert isinstance(
-            stack_info.buckets.output_bucket.node.default_child, CfnElement
-        )
-        output_bucket_logical_id = Stack.of(stack_info.scope).get_logical_id(
-            stack_info.buckets.output_bucket.node.default_child
-        )
-
-        assert isinstance(
             stack_info.tables.glacier_retrieval_table.node.default_child, CfnElement
         )
         glacier_retrieval_table_logical_id = Stack.of(stack_info.scope).get_logical_id(
@@ -178,7 +171,7 @@ class Workflow:
                     "id": "AwsSolutions-IAM5",
                     "reason": "It's necessary to have wildcard permissions for s3 put object, to allow for copying glacier archives over to s3 in any location",
                     "appliesTo": [
-                        f"Resource::<{output_bucket_logical_id}.Arn>/*",
+                        "Resource::arn:<AWS::Partition>:s3:::<DestinationBucketParameter>/*",
                         "Action::s3:Abort*",
                     ],
                 },
@@ -209,7 +202,7 @@ class Workflow:
                     "id": "AwsSolutions-IAM5",
                     "reason": "It's necessary to have wildcard permissions for s3 put object, to allow for copying glacier inventory over to s3 in any location",
                     "appliesTo": [
-                        f"Resource::<{output_bucket_logical_id}.Arn>/*",
+                        "Resource::arn:<AWS::Partition>:s3:::<DestinationBucketParameter>/*",
                         "Action::s3:Abort*",
                         "Action::s3:DeleteObject*",
                         "Action::s3:GetBucket*",
@@ -239,7 +232,7 @@ class Workflow:
             [
                 {
                     "id": "AwsSolutions-L1",
-                    "reason": "Python 3.10 is the latest version, but there is a bug in cdk-nag due to sorting",
+                    "reason": "Python 3.11 is the latest version, but there is a bug in cdk-nag due to sorting",
                 }
             ],
         )

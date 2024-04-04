@@ -17,7 +17,9 @@ def test_launch_yaml_doc() -> None:
     with mock.patch(
         "builtins.open", mock.mock_open(read_data="def func_name(): pass")
     ) as mock_open:
-        doc = LaunchAutomationDocument("ssm_role", "topic_arn", "state_machine_arn")
+        doc = LaunchAutomationDocument(
+            "ssm_role", "topic_arn", "state_machine_arn", "region", "bucket_name", True
+        )
         # create an instance of the class
 
         # assert that the _extract_func_name method was called
@@ -34,7 +36,13 @@ def test_resume_yaml_doc() -> None:
         "builtins.open", mock.mock_open(read_data="def func_name(): pass")
     ) as mock_open:
         doc = ResumeAutomationDocument(
-            "ssm_role", "topic_arn", "state_machine_arn", "table_name"
+            "ssm_role",
+            "topic_arn",
+            "state_machine_arn",
+            "table_name",
+            "region",
+            "bucket_name",
+            True,
         )
         # create an instance of the class
 

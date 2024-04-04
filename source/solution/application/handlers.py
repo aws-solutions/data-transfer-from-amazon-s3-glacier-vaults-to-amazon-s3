@@ -62,7 +62,7 @@ else:
     InitiateArchiveRetrievalResponse = object
 
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(int(os.environ.get("LOGGING_LEVEL", logging.INFO)))
 
 DYNAMODB_EVENT_SOURCE = "aws:dynamodb"
 SQS_EVENT_SOURCE = "aws:sqs"
@@ -70,11 +70,13 @@ SQS_EVENT_SOURCE = "aws:sqs"
 
 def handler(func: Callable[[Any, Any], Any]) -> Any:
     @wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
+    def wrapper(event: Any, context: Any) -> Any:
         """A wrapper function for Lambda handlers"""
 
-        logger.info(f"Invoking {func.__name__} lambda with Event: {args[0]}")
-        return func(*args, **kwargs)
+        if context:
+            os.environ["AWS_ACCOUNT_ID"] = context.invoked_function_arn.split(":")[4]
+        logger.info(f"Invoking {func.__name__} lambda with Event: {event}")
+        return func(event, context)
 
     return wrapper
 

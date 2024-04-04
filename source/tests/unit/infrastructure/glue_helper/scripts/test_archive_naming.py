@@ -3,6 +3,7 @@ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 """
 import datetime
+from unittest.mock import patch
 
 from pyspark.sql import SparkSession
 
@@ -41,6 +42,15 @@ def test_fastglacier_v2_v3_v4_format() -> None:
     )
 
 
+def test_fastglacier_v2_v3_v4_format_utf8() -> None:
+    assert (
+        parse_description(
+            "           <m><v>4</v><p>RlgxNTAvQ0JCX2ZpZ3VyZS90ZXN0X3B5dGjDtm5fZmlsZS5jYmI=</p><lm>20190121T085242Z       </lm>        </m>"
+        )
+        == "FX150/CBB_figure/test_pythön_file.cbb"
+    )
+
+
 def test_cloudberry_json_format() -> None:
     assert (
         parse_description(
@@ -63,6 +73,14 @@ def test_empty_archive_description() -> None:
 
 def test_backward_slashes_as_forward() -> None:
     assert parse_filename("AAAQQQ", "aaa\\\\bbb\\\\ccc") == "aaa/bbb/ccc"
+
+
+def test_failed_parse_description() -> None:
+    with patch(
+        "solution.infrastructure.glue_helper.scripts.archive_naming.parse_description"
+    ) as mock_parse_description:
+        mock_parse_description.side_effect = Exception()
+        assert parse_filename("AAAQQQ", "test_archive_description") == "00error/AAAQQQ"
 
 
 def test_parse_description_df() -> None:
@@ -125,7 +143,45 @@ def test_remove_duplicates_df() -> None:
 
     expected_filename_values = [
         "duplication.txt",
-        "duplication.txt-2023-08-15T13:28:01",
-        "duplication.txt-2023-08-15T13:28:02",
+        "duplication.txt-2023-08-15T13:28:01-2",
+        "duplication.txt-2023-08-15T13:28:02-3",
     ]
     assert filename_values == expected_filename_values
+
+    assert len(filename_values) == len(set(filename_values))
+
+
+def test_remove_duplicates_same_creation_date_df() -> None:
+    columns = [
+        "ArchiveId",
+        "ArchiveDescription",
+        "CreationDate",
+        "Size",
+        "SHA256TreeHash",
+        "Filename",
+    ]
+    data = []
+    for i in range(3):
+        entry = (
+            f"archive_id_{i}",
+            f"archive_description_{i}",
+            "2023-08-15T13:28:00",
+            i,
+            f"SHA256TreeHash_{i}",
+            "duplication.txt",
+        )
+        data.append(entry)
+    spark = SparkSession.builder.appName("TestApp").getOrCreate()
+    df = spark.createDataFrame(data, columns)
+    result_df = remove_duplicates_df(df)
+
+    filename_values = [row.Filename for row in result_df.select("Filename").collect()]
+
+    expected_filename_values = [
+        "duplication.txt",
+        "duplication.txt-2023-08-15T13:28:00-2",
+        "duplication.txt-2023-08-15T13:28:00-3",
+    ]
+    assert filename_values == expected_filename_values
+
+    assert len(filename_values) == len(set(filename_values))

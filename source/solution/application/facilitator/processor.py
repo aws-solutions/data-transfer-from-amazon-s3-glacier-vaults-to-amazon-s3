@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 import boto3
 
+from solution.application import __boto_config__
 from solution.application.model.facilitator import AsyncRecord, JobCompletionEvent
 from solution.infrastructure.output_keys import OutputKeys
 
@@ -20,7 +21,7 @@ else:
     SFNClient = object
 
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(int(os.environ.get("LOGGING_LEVEL", logging.INFO)))
 
 
 def handle_job_notification(message: str) -> None:
@@ -55,7 +56,7 @@ def handle_record_changed(attributes: dict[str, Any]) -> None:
 
 
 def update_record(record: AsyncRecord) -> None:
-    client: DynamoDBClient = boto3.client("dynamodb")
+    client: DynamoDBClient = boto3.client("dynamodb", config=__boto_config__)
 
     update_parameters = record.inventory_job_completion_update_parameters
     client.update_item(
@@ -84,5 +85,5 @@ def notify_of_result(task_token: str, event: JobCompletionEvent) -> None:
 
 
 def get_sfn_client() -> SFNClient:
-    client: SFNClient = boto3.client("stepfunctions")
+    client: SFNClient = boto3.client("stepfunctions", config=__boto_config__)
     return client

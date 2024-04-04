@@ -4,6 +4,7 @@ SPDX-License-Identifier: Apache-2.0
 """
 import json
 import logging
+import os
 import re
 from base64 import b64decode
 from xml.dom.minidom import parseString
@@ -12,17 +13,22 @@ from pyspark.sql import DataFrame, Window
 from pyspark.sql import functions as F
 
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(int(os.environ.get("LOGGING_LEVEL", logging.INFO)))
 
 
 def parse_filename(archive_id: str, archive_description: str) -> str:
-    filename: str = parse_description(archive_description.strip()).strip()
-    if filename == "":
-        filename = f"00undefined/{archive_id}"
-    if "\\" in filename:
-        filename = filename.replace(r"\\", "/")
+    try:
+        filename = parse_description(archive_description.strip()).strip()
+    except Exception as e:
+        logger.error(
+            f"Failed to parse archive description: {archive_description}. Error: {e}"
+        )
+        filename = f"00error/{archive_id}"
+    else:
+        if not filename:
+            filename = f"00undefined/{archive_id}"
 
-    return filename
+    return filename.replace(r"\\", "/")
 
 
 def parse_description(archive_description: str) -> str:
@@ -58,7 +64,7 @@ def parse_fast_glacier(archive_description: str, metadata: str, path: str) -> st
         json_obj.getElementsByTagName(metadata)[0]
         .getElementsByTagName(path)[0]
         .firstChild.data  # type: ignore
-    ).decode("ascii")
+    ).decode("utf-8", errors="ignore")
 
 
 def parse_description_df(df: DataFrame) -> DataFrame:
@@ -75,7 +81,9 @@ def remove_duplicates_df(df: DataFrame) -> DataFrame:
     df_removed_duplicates = df_with_row_number.withColumn(
         "Filename",
         F.when(df_with_row_number["row_number"] == 1, F.col("Filename")).otherwise(
-            F.concat_ws("-", F.col("Filename"), F.col("CreationDate"))
+            F.concat_ws(
+                "-", F.col("Filename"), F.col("CreationDate"), F.col("row_number")
+            )
         ),
     )
     return df_removed_duplicates

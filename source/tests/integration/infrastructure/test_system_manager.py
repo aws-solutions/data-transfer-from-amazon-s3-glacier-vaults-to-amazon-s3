@@ -24,12 +24,6 @@ else:
 
 
 @pytest.fixture(scope="module")
-def ssm_client() -> SSMClient:
-    ssm_client: SSMClient = boto3.client("ssm")
-    return ssm_client
-
-
-@pytest.fixture(scope="module")
 def default_input() -> Dict[str, Any]:
     return {
         "ProvidedInventory": [
@@ -37,6 +31,9 @@ def default_input() -> Dict[str, Any]:
         ],
         "VaultName": [
             "test_medium_vault",
+        ],
+        "AcknowledgeAdditionalCostForCrossRegionTransfer": [
+            "YES",
         ],
     }
 

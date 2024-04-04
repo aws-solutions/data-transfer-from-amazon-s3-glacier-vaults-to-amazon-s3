@@ -4,8 +4,11 @@ SPDX-License-Identifier: Apache-2.0
 """
 
 
+from typing import List, Tuple
+
 from aws_cdk import Aws, Duration, Fn, Stack
 from aws_cdk import aws_cloudwatch as cw
+from aws_cdk import aws_sqs as sqs
 
 METRICS_NAMESPACE = "DataTransferFromAmazonS3GlacierVaultsToAmazonS3"
 METRIC_LABEL_LIST = [
@@ -25,7 +28,7 @@ METRIC_LABEL_LIST = [
 
 
 class CwDashboard(object):
-    def __init__(self, scope: Stack) -> None:
+    def __init__(self, scope: Stack, queues: List[Tuple[str, sqs.Queue]]) -> None:
         count_metrics_list = []
         size_metrics_list = []
         stack_id = Fn.select(2, Fn.split("/", Aws.STACK_ID))
@@ -33,7 +36,7 @@ class CwDashboard(object):
             scope,
             "CloudWatchDashboard",
             default_interval=Duration.days(1),
-            dashboard_name=f"Data-Transfer-from-Amazon-S3-Glacier-to-Amazon-S3-Dashboard-{stack_id}",
+            dashboard_name=f"Data-transfer-from-Amazon-S3-Glacier-to-Amazon-S3-Dashboard-{stack_id}",
             variables=[
                 cw.DashboardVariable(
                     id="WorkflowRun",
@@ -55,12 +58,27 @@ class CwDashboard(object):
 
         for name, label in METRIC_LABEL_LIST:
             metric = self.create_metric(
-                name, label, {"WorkflowRun": "No-Workflow"}, cw.Stats.MAXIMUM
+                name,
+                label,
+                {"WorkflowRun": "No-Workflow"},
+                cw.Stats.MAXIMUM,
+                METRICS_NAMESPACE,
             )
             if "Count" in name:
                 count_metrics_list.append(metric)
             else:
                 size_metrics_list.append(metric)
+
+        sqs_metrics = [
+            self.create_metric(
+                "ApproximateAgeOfOldestMessage",
+                name,
+                {"QueueName": queue.queue_name},
+                cw.Stats.MAXIMUM,
+                "AWS/SQS",
+            )
+            for name, queue in queues
+        ]
 
         widget_title_prefix = (
             "Data Retrieval for Amazon Glacier S3 Progress Metrics - {}"
@@ -73,6 +91,8 @@ class CwDashboard(object):
         self.add_number_widgets(
             size_metrics_list, widget_title_prefix.format("Size"), False
         )
+
+        self.add_graph_widgets(sqs_metrics, "ApproximateAgeOfOldestMessage")
 
     def add_number_widgets(
         self, metrics_list: list[cw.Metric], title: str, full_precision: bool
@@ -87,18 +107,30 @@ class CwDashboard(object):
             )
         )
 
+    def add_graph_widgets(self, metrics_list: list[cw.Metric], title: str) -> None:
+        self.dashboard.add_widgets(
+            cw.GraphWidget(
+                title=title,
+                view=cw.GraphWidgetView.TIME_SERIES,
+                width=24,
+                height=6,
+                left=metrics_list,
+            )
+        )
+
     def create_metric(
         self,
         metric_name: str,
         label: str,
         dimensions_map: dict[str, str],
         statistic: str,
+        namespace: str,
     ) -> cw.Metric:
         return cw.Metric(
             unit=cw.Unit.COUNT,
             metric_name=metric_name,
             label=label,
-            namespace=METRICS_NAMESPACE,
+            namespace=namespace,
             dimensions_map=dimensions_map,
             account=Aws.ACCOUNT_ID,
             statistic=statistic,

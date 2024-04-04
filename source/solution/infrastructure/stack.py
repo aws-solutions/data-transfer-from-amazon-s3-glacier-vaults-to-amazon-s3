@@ -28,6 +28,7 @@ from cdk_nag import NagSuppressions
 from constructs import Construct
 
 from solution.application.glacier_service.glacier_typing import GlacierJobType
+from solution.infrastructure.helpers.logs_insights_query import LogsInsightsQuery
 from solution.infrastructure.helpers.solutions_function import SolutionsPythonFunction
 from solution.infrastructure.helpers.solutions_table import SolutionsTable
 from solution.infrastructure.helpers.system_manager import SystemManager
@@ -48,7 +49,7 @@ from solution.infrastructure.workflows.stack_info import StackInfo
 
 class SolutionStack(Stack):
     outputs: dict[str, CfnOutput]
-    skip_integration_tests: bool = False
+    skip_integration_tests: bool = True
 
     def __init__(
         self,
@@ -67,6 +68,8 @@ class SolutionStack(Stack):
         skip_integration_tests = scope.node.try_get_context("skip_integration_tests")
         if skip_integration_tests:
             self.skip_integration_tests = skip_integration_tests.lower() == "true"
+
+        output_bucket_name_context = scope.node.try_get_context("output_bucket_name")
 
         _excluded_assets = (
             ["**/mock_glacier_data.py", "**/__pycache__/**", "tests/**"]
@@ -186,6 +189,20 @@ class SolutionStack(Stack):
         async_facilitator_topic.add_subscription(
             subscriptions.SqsSubscription(stack_info.queues.notifications_queue)
         )
+
+        # Bucket naming rules: https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html
+        stack_info.parameters.destination_bucket_parameter = CfnParameter(
+            self,
+            "DestinationBucketParameter",
+            type="String",
+            description="(Required) The destination Amazon S3 bucket name",
+            allowed_pattern="(?!(^xn--|^sthree-|.+-s3alias$|.+--ol-s3$))^[a-zA-Z0-9][a-zA-Z0-9-._]{1,253}[a-zA-Z0-9]$",
+        )
+
+        if output_bucket_name_context:
+            stack_info.parameters.destination_bucket_parameter.default = (
+                output_bucket_name_context
+            )
 
         stack_info.parameters.enable_ddb_backup_parameter = CfnParameter(
             self,
@@ -340,6 +357,14 @@ class SolutionStack(Stack):
             schedule=eventbridge.Schedule.expression("cron(0/15 * * * ? *)"),
         )
 
+        stack_info.outputs[
+            OutputKeys.WORKFLOW_COMPLETION_CHECKER_RULE_NAME
+        ] = CfnOutput(
+            self,
+            OutputKeys.WORKFLOW_COMPLETION_CHECKER_RULE_NAME,
+            value=stack_info.eventbridge_rules.completion_checker_trigger.rule_name,
+        )
+
         stack_info.lambdas.completion_checker_lambda = SolutionsPythonFunction(
             self,
             "CompletionChecker",
@@ -460,6 +485,13 @@ class SolutionStack(Stack):
                 OutputKeys.METRIC_TABLE_NAME: stack_info.tables.metric_table.table_name,
             },
         )
+
+        stack_info.outputs[OutputKeys.METRIC_UPDATE_LAMBDA_NAME] = CfnOutput(
+            self,
+            OutputKeys.METRIC_UPDATE_LAMBDA_NAME,
+            value=stack_info.lambdas.metric_update_on_status_change_lambda.function_name,
+        )
+
         stack_info.tables.metric_table.grant_read_write_data(
             stack_info.lambdas.metric_update_on_status_change_lambda
         )
@@ -487,9 +519,9 @@ class SolutionStack(Stack):
                         }
                     )
                 ],
-                batch_size=500,
+                batch_size=20,
                 parallelization_factor=1,
-                max_batching_window=Duration.seconds(5),
+                max_batching_window=Duration.seconds(300),
                 retry_attempts=MAX_RETRY_ATTEMPTS,
             )
         )
@@ -610,22 +642,16 @@ class SolutionStack(Stack):
         )
 
         # Bucket to store the restored vault.
-        stack_info.buckets.output_bucket = s3.Bucket(
+        stack_info.interfaces.output_bucket = s3.Bucket.from_bucket_name(
             self,
             "OutputBucket",
-            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
-            encryption=s3.BucketEncryption.S3_MANAGED,
-            enforce_ssl=True,
-            versioned=True,
-            removal_policy=RemovalPolicy.RETAIN,
-            server_access_logs_bucket=stack_info.buckets.access_logs_bucket,
-            server_access_logs_prefix="output_bucket_access_logs",
+            bucket_name=stack_info.parameters.destination_bucket_parameter.value_as_string,
         )
 
         stack_info.outputs[OutputKeys.OUTPUT_BUCKET_NAME] = CfnOutput(
             self,
             OutputKeys.OUTPUT_BUCKET_NAME,
-            value=stack_info.buckets.output_bucket.bucket_name,
+            value=stack_info.interfaces.output_bucket.bucket_name,
         )
 
         # Bucket to store the inventory and the Glue output after it's sorted.
@@ -648,7 +674,8 @@ class SolutionStack(Stack):
         )
 
         stack_info.lambdas.notifications_processor_lambda.add_environment(
-            OutputKeys.OUTPUT_BUCKET_NAME, stack_info.buckets.output_bucket.bucket_name
+            OutputKeys.OUTPUT_BUCKET_NAME,
+            stack_info.interfaces.output_bucket.bucket_name,
         )
 
         stack_info.lambdas.notifications_processor_lambda.add_environment(
@@ -665,15 +692,8 @@ class SolutionStack(Stack):
             stack_info.lambdas.notifications_processor_lambda
         )
 
-        stack_info.buckets.output_bucket.grant_read_write(
+        stack_info.interfaces.output_bucket.grant_read_write(
             stack_info.lambdas.notifications_processor_lambda
-        )
-
-        assert isinstance(
-            stack_info.buckets.output_bucket.node.default_child, CfnElement
-        )
-        output_bucket_logical_id = Stack.of(stack_info.scope).get_logical_id(
-            stack_info.buckets.output_bucket.node.default_child
         )
 
         assert stack_info.lambdas.notifications_processor_lambda.role is not None
@@ -686,7 +706,7 @@ class SolutionStack(Stack):
                     "id": "AwsSolutions-IAM5",
                     "reason": "It's necessary to have wildcard permissions for s3 put object, to allow for copying glacier archives over to s3 in any location",
                     "appliesTo": [
-                        f"Resource::<{output_bucket_logical_id}.Arn>/*",
+                        "Resource::arn:<AWS::Partition>:s3:::<DestinationBucketParameter>/*",
                         "Action::s3:Abort*",
                         "Action::s3:DeleteObject*",
                         "Action::s3:GetBucket*",
@@ -706,7 +726,10 @@ class SolutionStack(Stack):
         archives_status_cleanup.Workflow(stack_info)
         orchestrator.Workflow(stack_info)
 
+        LogsInsightsQuery(stack_info)
+
         # Creating the System Manager Resources
-        SystemManager(stack_info)
+        allow_cross_region_data_transfer = self.skip_integration_tests == False
+        SystemManager(stack_info, allow_cross_region_data_transfer)
         self.outputs = stack_info.outputs
         self.stack_info = stack_info

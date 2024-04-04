@@ -410,6 +410,9 @@ class GlueSfnUpdate(object):
                     "--metric_table_name": self.metric_table,
                     "--migration_type.$": "$.migration_type",
                     "--inventory_bucket": self.s3_bucket_name,
+                    "--enable-job-insights": "true",
+                    "--enable-continuous-cloudwatch-log": "true",
+                    "--job-language": "python",
                 }
             ),
             result_path="$.glue_start_job_result",

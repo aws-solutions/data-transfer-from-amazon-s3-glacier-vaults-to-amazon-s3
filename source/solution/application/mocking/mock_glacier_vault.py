@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 
 import boto3
 
+from solution.application import __boto_config__
 from solution.application.glacier_service.glacier_typing import GlacierJobType
 from solution.application.hashing.tree_hash import TreeHash
 
@@ -28,7 +29,7 @@ else:
 class MockGlacierVault:
     def __init__(self, vault_name: str) -> None:
         self.vault_name = vault_name
-        self.glacier: GlacierClient = boto3.client("glacier")
+        self.glacier: GlacierClient = boto3.client("glacier", config=__boto_config__)
         self.glacier.create_vault(vaultName=vault_name)
         self.mock_vault_mapping: Dict[Any, Any] = {}
         self.inventory_job_id = ""

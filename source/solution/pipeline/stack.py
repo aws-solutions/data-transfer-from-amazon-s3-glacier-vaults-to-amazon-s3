@@ -34,12 +34,14 @@ class PipelineStack(Stack):
 
        - repository_name: CodeCommit repository name
        - branch: Branch to trigger the pipeline from
+       - output_bucket_name: Output bucket name
        - skip_integration_tests: true or false
     """
 
     repository_name: str = "DataTransferFromAmazonS3GlacierVaultsToAmazonS3"
     branch: str = "main"
-    skip_integration_tests: bool = False
+    output_bucket_name: str = ""
+    skip_integration_tests: bool = True
 
     def __init__(self, scope: Construct, construct_id: str) -> None:
         context_repo = scope.node.try_get_context("repository_name")
@@ -48,6 +50,10 @@ class PipelineStack(Stack):
         context_branch = scope.node.try_get_context("branch")
         if context_branch:
             self.branch = context_branch
+        context_output_bucket_name = scope.node.try_get_context("output_bucket_name")
+        if context_output_bucket_name:
+            self.output_bucket_name = context_output_bucket_name
+
         skip_integration_tests = scope.node.try_get_context("skip_integration_tests")
         if skip_integration_tests:
             self.skip_integration_tests = skip_integration_tests.lower() == "true"
@@ -134,6 +140,7 @@ class PipelineStack(Stack):
             env=dict(
                 REPOSITORY_NAME=self.repository_name,
                 BRANCH=self.branch,
+                OUTPUT_BUCKET_NAME=self.output_bucket_name,
                 SKIP_INTEGRATION_TESTS=f"{self.skip_integration_tests}",
             ),
             install_commands=[
@@ -141,7 +148,7 @@ class PipelineStack(Stack):
             ],
             commands=[
                 "tox --recreate --parallel-no-spinner -- --junitxml=pytest-report.xml",
-                "npx cdk synth -c repository_name=$REPOSITORY_NAME -c branch=$BRANCH -c skip_integration_tests=$SKIP_INTEGRATION_TESTS",
+                "npx cdk synth -c repository_name=$REPOSITORY_NAME -c branch=$BRANCH -c output_bucket_name=$OUTPUT_BUCKET_NAME -c skip_integration_tests=$SKIP_INTEGRATION_TESTS",
             ],
             partial_build_spec=self.get_partial_build_spec(
                 dict(
@@ -167,7 +174,11 @@ class PipelineStack(Stack):
             install_commands=[
                 "pip install tox",
             ],
-            env=dict(STACK_NAME=stack_name, MOCK_SNS_STACK_NAME=mock_sns_stack_name),
+            env=dict(
+                STACK_NAME=stack_name,
+                MOCK_SNS_STACK_NAME=mock_sns_stack_name,
+                AWS_ACCOUNT_ID=Aws.ACCOUNT_ID,
+            ),
             commands=["tox -e integration -- --junitxml=pytest-integration-report.xml"],
             role_policy_statements=[
                 iam.PolicyStatement(
@@ -214,8 +225,15 @@ class PipelineStack(Stack):
                         "s3:List*",
                     ],
                     resources=[
-                        "arn:aws:s3:::*-outputbucket*",
+                        f"arn:aws:s3:::{self.output_bucket_name}*",
                         "arn:aws:s3:::*-inventorybucket*",
+                    ],
+                ),
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    actions=["events:ListTargetsByRule", "events:removeTargets"],
+                    resources=[
+                        f"arn:aws:events:{Aws.REGION}:{Aws.ACCOUNT_ID}:rule/*",
                     ],
                 ),
                 iam.PolicyStatement(
@@ -292,6 +310,19 @@ class PipelineStack(Stack):
                     ],
                     resources=[
                         f"arn:aws:ssm:{Aws.REGION}:{Aws.ACCOUNT_ID}:automation-execution/*"
+                    ],
+                ),
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    actions=[
+                        "logs:DescribeQueryDefinitions",
+                        "logs:PutLogEvents",
+                        "logs:StartQuery",
+                        "logs:CreateLogStream",
+                        "logs:GetQueryResults",
+                    ],
+                    resources=[
+                        f"arn:aws:logs:{Aws.REGION}:{Aws.ACCOUNT_ID}:log-group:*",
                     ],
                 ),
             ],

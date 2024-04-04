@@ -61,9 +61,10 @@ def setup() -> Any:
     s3_util.delete_archives_from_s3(prefix=WORKFLOW_RUN)
 
 
-def test_state_machine_start_execution(default_input: str) -> None:
-    client: SFNClient = boto3.client("stepfunctions")
-    response = client.start_execution(
+def test_state_machine_start_execution(
+    default_input: str, sfn_client: SFNClient
+) -> None:
+    response = sfn_client.start_execution(
         stateMachineArn=os.environ[OutputKeys.ORCHESTRATOR_STATE_MACHINE_ARN],
         input=default_input,
     )

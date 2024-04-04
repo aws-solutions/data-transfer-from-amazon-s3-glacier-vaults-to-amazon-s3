@@ -4,6 +4,7 @@ SPDX-License-Identifier: Apache-2.0
 """
 
 import json
+import os
 import time
 from typing import TYPE_CHECKING, Any, Dict, List
 
@@ -12,15 +13,25 @@ import boto3
 from solution.infrastructure.output_keys import OutputKeys
 
 if TYPE_CHECKING:
-    from mypy_boto3_s3 import S3Client
     from mypy_boto3_stepfunctions import SFNClient
 else:
     SFNClient = object
-    S3Client = object
+
+
+def sfn_client() -> SFNClient:
+    if "AWS_PROFILE" in os.environ and "AWS_REGION" in os.environ:
+        session = boto3.Session(
+            profile_name=os.environ["AWS_PROFILE"],
+            region_name=os.environ["AWS_REGION"],
+        )
+    else:
+        session = boto3.Session()
+    client: SFNClient = session.client("stepfunctions")
+    return client
 
 
 def get_state_machine_output(executionArn: str, timeout: int) -> str:
-    client: SFNClient = boto3.client("stepfunctions")
+    client: SFNClient = sfn_client()
     start_time = time.time()
     sf_output: str = "TIMEOUT EXCEEDED"
     while (time.time() - start_time) < timeout:
@@ -40,7 +51,7 @@ def get_state_machine_output(executionArn: str, timeout: int) -> str:
 
 
 def wait_till_state_machine_finish(executionArn: str, timeout: int) -> None:
-    client: SFNClient = boto3.client("stepfunctions")
+    client: SFNClient = sfn_client()
     start_time = time.time()
     while (time.time() - start_time) < timeout:
         time.sleep(1)
@@ -54,7 +65,7 @@ def wait_till_state_machine_finish(executionArn: str, timeout: int) -> None:
 def nested_distributed_map_navigator(
     execution_arn: str, state_name_to_state_type: Dict[str, Any]
 ) -> Any:
-    client: SFNClient = boto3.client("stepfunctions")
+    client: SFNClient = sfn_client()
     for index, (name, state_type) in enumerate(state_name_to_state_type.items()):
         sf_history_output = client.get_execution_history(
             executionArn=execution_arn, maxResults=1000
@@ -83,7 +94,7 @@ def nested_distributed_map_navigator(
 
 
 def stop_execution_running_sfn(state_machine_arns: List[str]) -> None:
-    client: SFNClient = boto3.client("stepfunctions")
+    client: SFNClient = sfn_client()
     for machine_arn in state_machine_arns:
         response = client.list_executions(
             stateMachineArn=machine_arn, statusFilter="RUNNING"

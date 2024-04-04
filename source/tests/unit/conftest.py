@@ -3,6 +3,8 @@ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 """
 
+
+import logging
 import os
 from typing import TYPE_CHECKING, Any, Dict, Generator, Iterator, Tuple
 
@@ -11,6 +13,7 @@ import aws_cdk.assertions as assertions
 import boto3
 import cdk_nag
 import pytest
+from botocore.config import Config
 from moto import mock_dynamodb, mock_glacier, mock_s3, mock_sqs  # type: ignore
 from mypy_boto3_dynamodb import DynamoDBClient
 from mypy_boto3_dynamodb.type_defs import CreateTableOutputTypeDef
@@ -23,9 +26,10 @@ from solution.infrastructure.output_keys import OutputKeys
 from solution.infrastructure.stack import SolutionStack
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="module", autouse=True)
 def aws_credentials() -> None:
     """Mocked AWS Credentials for moto"""
+    os.environ["AWS_ACCOUNT_ID"] = "testing"
     os.environ["AWS_ACCESS_KEY_ID"] = "testing"
     os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
     os.environ["AWS_SECURITY_TOKEN"] = "testing"
@@ -40,6 +44,12 @@ def aws_credentials() -> None:
     os.environ[OutputKeys.GLACIER_RETRIEVAL_INDEX_NAME] = "staged_archives_index"
     os.environ[OutputKeys.METRIC_TABLE_NAME] = "MetricTable"
     os.environ[OutputKeys.VALIDATION_SQS_URL] = "ValidationSQS"
+    os.environ["LOGGING_LEVEL"] = str(logging.INFO)
+
+
+@pytest.fixture(scope="module")
+def solution_user_agent() -> str:
+    return "AwsSolution/SO0293/v1.1.0"
 
 
 @pytest.fixture(scope="module")

@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Dict, List
 import boto3
 from botocore.exceptions import ClientError
 
+from solution.application import __boto_config__
 from solution.application.db_accessor.dynamoDb_accessor import DynamoDBAccessor
 from solution.application.glacier_s3_transfer.upload import S3Upload
 from solution.application.glacier_service.glacier_typing import GlacierJobType
@@ -37,7 +38,7 @@ else:
     CompleteMultipartUploadOutputTypeDef = object
 
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(int(os.environ.get("LOGGING_LEVEL", logging.INFO)))
 
 
 def validate_upload(
@@ -64,10 +65,6 @@ def validate_upload(
         )
         return None
 
-    glacier_part_items = get_glacier_object_parts(
-        workflow_run, glacier_object_id, ddb_accessor
-    )
-
     s3_upload = S3Upload(
         glacier_metadata.s3_destination_bucket,
         glacier_metadata.s3_destination_key,
@@ -75,24 +72,15 @@ def validate_upload(
     )
     tree_hash = TreeHash()
 
-    for glacier_part_dict in glacier_part_items:
-        part = GlacierTransferPart.parse(glacier_part_dict)
-        s3_upload.include_part(part)
-        if glacier_job_type is GlacierJobType.ARCHIVE_RETRIEVAL:
-            if part.tree_checksum is None:
-                raise InvalidGlacierRetrievalMetadata(
-                    "Failed to retrieve tree_checksum from part metadata"
-                )
-            tree_hash.include(b64decode(part.tree_checksum.encode("ascii")))
-
-    if glacier_job_type is GlacierJobType.ARCHIVE_RETRIEVAL:
-        glacier_checksum = glacier_metadata.sha256_tree_hash
-        s3_checksum = tree_hash.digest().hex()
-        if s3_checksum != glacier_checksum:
-            logger.error(
-                f"Archive Tree hash {s3_checksum} does not match expected {glacier_checksum}"
-            )
-            raise GlacierValidationMismatch
+    add_glacier_parts(
+        glacier_metadata,
+        glacier_job_type,
+        workflow_run,
+        glacier_object_id,
+        ddb_accessor,
+        s3_upload,
+        tree_hash,
+    )
 
     if (
         glacier_job_type is GlacierJobType.ARCHIVE_RETRIEVAL
@@ -122,16 +110,50 @@ def validate_upload(
     return upload_response
 
 
+def add_glacier_parts(
+    glacier_metadata: GlacierTransferMetadata,
+    glacier_job_type: str,
+    workflow_run: str,
+    glacier_object_id: str,
+    ddb_accessor: DynamoDBAccessor,
+    s3_upload: S3Upload,
+    tree_hash: TreeHash,
+) -> None:
+    glacier_part_items = get_glacier_object_parts(
+        workflow_run, glacier_object_id, ddb_accessor
+    )
+
+    for glacier_part_dict in glacier_part_items:
+        part = GlacierTransferPart.parse(glacier_part_dict)
+        s3_upload.include_part(part)
+        if glacier_job_type is GlacierJobType.ARCHIVE_RETRIEVAL:
+            if part.tree_checksum is None:
+                raise InvalidGlacierRetrievalMetadata(
+                    "Failed to retrieve tree_checksum from part metadata"
+                )
+            tree_hash.include(b64decode(part.tree_checksum.encode("ascii")))
+
+    if glacier_job_type is GlacierJobType.ARCHIVE_RETRIEVAL:
+        glacier_checksum = glacier_metadata.sha256_tree_hash
+        s3_checksum = tree_hash.digest().hex()
+        if s3_checksum != glacier_checksum:
+            logger.error(
+                f"Archive Tree hash {s3_checksum} does not match expected {glacier_checksum}"
+            )
+            raise GlacierValidationMismatch
+
+
 def s3_glacier_object_exists(
     s3_destination_bucket: str, s3_destination_key: str
 ) -> bool:
-    s3_client: S3Client = boto3.client("s3")
+    s3_client: S3Client = boto3.client("s3", config=__boto_config__)
 
     try:
         logger.info(f"Check if S3 object exists: {s3_destination_key}")
         s3_client.head_object(
             Bucket=s3_destination_bucket,
             Key=s3_destination_key,
+            ExpectedBucketOwner=os.environ["AWS_ACCOUNT_ID"],
         )
     except ClientError as err:
         if err.response["Error"]["Code"] == "404":
