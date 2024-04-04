@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Dict, List
 
 import boto3
 
+from solution.application import __boto_config__
 from solution.application.db_accessor.dynamoDb_accessor import DynamoDBAccessor
 from solution.application.model.metric_record import MetricRecord
 from solution.application.partial_run.archives_status_cleanup import (
@@ -30,7 +31,7 @@ from solution.application.model.glacier_transfer_meta_model import (
 
 
 def handle_failed_archives(workflow_run: str, bucket_name: str) -> None:
-    client: DynamoDBClient = boto3.client("dynamodb")
+    client: DynamoDBClient = boto3.client("dynamodb", config=__boto_config__)
     failed_archives: List[Dict[str, Any]] = collect_non_downloaded_archives(
         client, workflow_run
     )
@@ -46,7 +47,7 @@ def handle_failed_archives(workflow_run: str, bucket_name: str) -> None:
 def _write_csv_to_s3(
     workflow_run: str, failed_archives: List[Dict[str, Any]], bucket_name: str
 ) -> None:
-    client: S3Client = boto3.client("s3")
+    client: S3Client = boto3.client("s3", config=__boto_config__)
     # Convert the DynamoDB JSON to a normal dictionary, ignoring data types
     # Convert each item in the list and filter the keys
     parsed_failed_archives = [
@@ -83,6 +84,7 @@ def _write_csv_to_s3(
         Bucket=bucket_name,
         Key=f"{workflow_run}/failed_archives/failed_archives.csv",
         Body=csv_buffer.getvalue().encode("utf-8"),
+        ExpectedBucketOwner=os.environ["AWS_ACCOUNT_ID"],
     )
 
 

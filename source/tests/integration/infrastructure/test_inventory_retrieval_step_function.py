@@ -33,6 +33,7 @@ else:
 
 VAULT_NAME = "test_vault_chunk_generation_vault"
 WORKFLOW_RUN = "workflow_run_inventory_retrieval"
+WORKFLOW_RUN_RESUME = "workflow_run_inventory_retrieval_resume"
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -46,6 +47,7 @@ def set_up() -> Any:
     )
     ddb_util.delete_all_table_items(os.environ[OutputKeys.METRIC_TABLE_NAME], "pk")
     s3_util.delete_all_inventory_files_from_s3(prefix=WORKFLOW_RUN)
+    s3_util.delete_all_inventory_files_from_s3(prefix=WORKFLOW_RUN_RESUME)
 
 
 @pytest.fixture(scope="module")
@@ -66,11 +68,6 @@ def default_input() -> str:
             s3_storage_class="GLACIER",
         )
     )
-
-
-@pytest.fixture(scope="module")
-def sfn_client() -> Any:
-    return boto3.client("stepfunctions")
 
 
 @pytest.fixture(scope="module")
@@ -97,9 +94,8 @@ def sf_history_output_with_inventory(sfn_client: SFNClient) -> Any:
     )
 
 
-def test_state_machine_start_execution() -> None:
-    client: SFNClient = boto3.client("stepfunctions")
-    response = client.start_execution(
+def test_state_machine_start_execution(sfn_client: SFNClient) -> None:
+    response = sfn_client.start_execution(
         stateMachineArn=os.environ[OutputKeys.INVENTORY_RETRIEVAL_STATE_MACHINE_ARN]
     )
     assert 200 == response["ResponseMetadata"]["HTTPStatusCode"]
@@ -159,21 +155,22 @@ def test_multipart_upload_create_task_succeeded(
             break
 
 
-def test_dynamo_db_put_multipart_upload_behavior() -> None:
+def test_dynamo_db_put_multipart_upload_behavior(ddb_client: DynamoDBClient) -> None:
     meta_read = GlacierTransferMetadataRead(
         workflow_run=WORKFLOW_RUN, glacier_object_id=VAULT_NAME
     )
     table_name = os.environ[OutputKeys.GLACIER_RETRIEVAL_TABLE_NAME]
-    db_client: DynamoDBClient = boto3.client("dynamodb")
 
-    query_response = db_client.get_item(
+    query_response = ddb_client.get_item(
         TableName=table_name,
         Key=meta_read.key,
     )
     assert query_response["Item"]["upload_id"]["S"] is not None
 
 
-def test_dynamo_db_put_item_async_behavior(sf_history_output_no_inventory: Any) -> None:
+def test_dynamo_db_put_item_async_behavior(
+    sf_history_output_no_inventory: Any, ddb_client: DynamoDBClient
+) -> None:
     event_details = [
         event["taskSucceededEventDetails"]
         for event in sf_history_output_no_inventory["events"]
@@ -186,9 +183,8 @@ def test_dynamo_db_put_item_async_behavior(sf_history_output_no_inventory: Any) 
             job_id = state_output["JobId"]
 
             table_name = os.environ[OutputKeys.ASYNC_FACILITATOR_TABLE_NAME]
-            db_client: DynamoDBClient = boto3.client("dynamodb")
             key = {"job_id": {"S": job_id}}
-            item = db_client.get_item(TableName=table_name, Key=key)
+            item = ddb_client.get_item(TableName=table_name, Key=key)
             assert (
                 item["Item"]["task_token"] is not None
                 and item["Item"]["finish_timestamp"] is not None
@@ -239,7 +235,7 @@ def test_initiate_job_task_succeeded_for_glue_job_run(
 
 
 def test_inventory_retrieval_writes_parts_to_dynamo(
-    sf_history_output_no_inventory: Any,
+    sf_history_output_no_inventory: Any, ddb_client: DynamoDBClient
 ) -> None:
     event_details = [
         event["stateExitedEventDetails"]
@@ -254,11 +250,10 @@ def test_inventory_retrieval_writes_parts_to_dynamo(
         str(item["PartNumber"]): item for item in state_output["upload_part_result"]
     }
     table_name = os.environ[OutputKeys.GLACIER_RETRIEVAL_TABLE_NAME]
-    db_client: DynamoDBClient = boto3.client("dynamodb")
     part_model = GlacierTransferPartRead(
         workflow_run=WORKFLOW_RUN, glacier_object_id=VAULT_NAME, part_number=1
     )
-    part1 = db_client.get_item(TableName=table_name, Key=part_model.key)["Item"]
+    part1 = ddb_client.get_item(TableName=table_name, Key=part_model.key)["Item"]
     assert (
         part1["checksum_sha_256"]["S"]
         == state_output_part_mapping["1"]["ChecksumSHA256"]
@@ -284,10 +279,9 @@ def test_multipart_upload_completes_successfully(
 
 
 def test_state_machine_start_execution_inventory_already_downloaded(
-    default_input: str, sfn_client: SFNClient
+    default_input: str, sfn_client: SFNClient, ddb_client: DynamoDBClient
 ) -> Any:
-    db_client: DynamoDBClient = boto3.client("dynamodb")
-    db_client.update_item(
+    ddb_client.update_item(
         TableName=os.environ[OutputKeys.GLACIER_RETRIEVAL_TABLE_NAME],
         Key=GlacierTransferMetadataRead(
             workflow_run=WORKFLOW_RUN, glacier_object_id=VAULT_NAME
@@ -320,22 +314,22 @@ def test_state_machine_start_execution_inventory_already_downloaded(
 
 
 def test_state_machine_resuming_workflow(
-    default_input: str, sfn_client: SFNClient
+    default_input: str,
+    sfn_client: SFNClient,
+    ddb_client: DynamoDBClient,
+    s3_client: S3Client,
 ) -> None:
     # adding a dummy name to sorted_inventory folder to later make sure it is deleted
-    file_name_prefix = f"{WORKFLOW_RUN}_RESUME/sorted_inventory/test_inventory"
+    file_name_prefix = f"{WORKFLOW_RUN_RESUME}/sorted_inventory/test_inventory"
     s3_util.put_inventory_file_in_s3(file_name_prefix, VAULT_NAME)
-    s3_client: S3Client = boto3.client("s3")
     input_json = json.loads(default_input)
     input_json["migration_type"] = "RESUME"
-    workflow_run = f"{WORKFLOW_RUN}_RESUME"
-    input_json["workflow_run"] = workflow_run
+    input_json["workflow_run"] = WORKFLOW_RUN_RESUME
     input_resume = json.dumps(input_json)
-    db_client: DynamoDBClient = boto3.client("dynamodb")
-    db_client.put_item(
+    ddb_client.put_item(
         TableName=os.environ[OutputKeys.METRIC_TABLE_NAME],
         Item={
-            "pk": {"S": workflow_run},
+            "pk": {"S": WORKFLOW_RUN_RESUME},
             "count_total": {"N": "100"},
             "size_total": {"N": "2000"},
             "count_staged": {"N": "80"},
@@ -351,16 +345,16 @@ def test_state_machine_resuming_workflow(
         input=input_resume,
     )
     sfn_util.wait_till_state_machine_finish(response["executionArn"], timeout=420)
-    metric_item = db_client.get_item(
+    metric_item = ddb_client.get_item(
         TableName=os.environ[OutputKeys.METRIC_TABLE_NAME],
-        Key={"pk": {"S": workflow_run}},
+        Key={"pk": {"S": WORKFLOW_RUN_RESUME}},
     )
     # Making sure the sorted_invetory is updated
     time.sleep(10)
 
     sorted_inventory_dir = s3_client.list_objects(
         Bucket=os.environ[OutputKeys.INVENTORY_BUCKET_NAME],
-        Prefix=f"{WORKFLOW_RUN}_RESUME/sorted_inventory",
+        Prefix=f"{WORKFLOW_RUN_RESUME}/sorted_inventory",
     )
     # Making sure to purge the sorted_inventory folder
     assert "test_inventory" not in sorted_inventory_dir["Contents"][0]["Key"]

@@ -21,11 +21,24 @@ else:
     S3Client = object
 
 
+def s3_client() -> S3Client:
+    if "AWS_PROFILE" in os.environ and "AWS_REGION" in os.environ:
+        session = boto3.Session(
+            profile_name=os.environ["AWS_PROFILE"],
+            region_name=os.environ["AWS_REGION"],
+        )
+    else:
+        session = boto3.Session()
+
+    client: S3Client = session.client("s3")
+    return client
+
+
 def put_inventory_file_in_s3(
     file_name_prefix: str,
     vault_name: str,
 ) -> None:
-    client: S3Client = boto3.client("s3")
+    client: S3Client = s3_client()
     for i, csv_buffer in enumerate(inventory_file_generator(vault_name)):
         client.put_object(
             Bucket=os.environ[OutputKeys.INVENTORY_BUCKET_NAME],
@@ -35,7 +48,7 @@ def put_inventory_file_in_s3(
 
 
 def delete_all_inventory_files_from_s3(prefix: str) -> None:
-    client: S3Client = boto3.client("s3")
+    client: S3Client = s3_client()
     objects_to_delete = client.list_objects_v2(
         Bucket=os.environ[OutputKeys.INVENTORY_BUCKET_NAME], Prefix=prefix
     )
@@ -52,7 +65,7 @@ def delete_all_inventory_files_from_s3(prefix: str) -> None:
 
 
 def delete_archives_from_s3(prefix: str) -> None:
-    client: S3Client = boto3.client("s3")
+    client: S3Client = s3_client()
     objects_to_delete = client.list_objects_v2(
         Bucket=os.environ[OutputKeys.OUTPUT_BUCKET_NAME], Prefix=prefix
     )
@@ -69,7 +82,7 @@ def delete_archives_from_s3(prefix: str) -> None:
 
 
 def delete_inventory_file_from_s3(file_name_prefix: str, num_archives: int) -> None:
-    client: S3Client = boto3.client("s3")
+    client: S3Client = s3_client()
     inventories_keys = [f"{file_name_prefix}_{n}.csv" for n in range(num_archives)]
     client.delete_objects(
         Bucket=os.environ[OutputKeys.INVENTORY_BUCKET_NAME],

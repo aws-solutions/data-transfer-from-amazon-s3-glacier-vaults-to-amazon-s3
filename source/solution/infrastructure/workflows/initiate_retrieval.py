@@ -12,7 +12,11 @@ from cdk_nag import NagSuppressions
 
 from solution.application.model.partition_metric_record import PartitionMetricRecord
 from solution.application.util.exceptions import ResourceNotFound
-from solution.infrastructure.helpers.distributed_map import DistributedMap
+from solution.infrastructure.helpers.distributed_map import (
+    DistributedMap,
+    ItemReaderConfig,
+    ResultConfig,
+)
 from solution.infrastructure.helpers.nested_distributed_map import NestedDistributedMap
 from solution.infrastructure.helpers.solutions_function import SolutionsPythonFunction
 from solution.infrastructure.helpers.solutions_state_machine import (
@@ -217,10 +221,17 @@ class Workflow:
             .next(wait_state)
         )
 
+        item_reader_config = ItemReaderConfig()
+        result_config = ResultConfig(
+            result_path="$.partitions_map_result",
+        )
+
         partitions_distributed_map_state = DistributedMap(
             stack_info.scope,
             "PartitionsDistributedMap",
             definition=definition,
+            item_reader_config=item_reader_config,
+            result_config=result_config,
             max_concurrency=1,
             items_path="$.partitions.CommonPrefixes",
             item_selector={
@@ -233,7 +244,6 @@ class Workflow:
                 "s3_storage_class.$": "$.s3_storage_class",
                 "bucket": stack_info.buckets.inventory_bucket.bucket_name,
             },
-            result_path="$.partitions_map_result",
         )
 
         stack_info.default_retry.apply_to_steps([list_inventory_partitions])

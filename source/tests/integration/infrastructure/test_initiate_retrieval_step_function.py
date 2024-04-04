@@ -21,9 +21,11 @@ from solution.application.model.metric_record import MetricRecord
 from solution.infrastructure.output_keys import OutputKeys
 
 if TYPE_CHECKING:
+    from mypy_boto3_dynamodb import DynamoDBClient
     from mypy_boto3_stepfunctions import SFNClient
 else:
     SFNClient = object
+    DynamoDBClient = object
 
 WORKFLOW_RUN = "workflow_run_initiate_retrieval"
 VAULT_NAME = "test_small_vault"
@@ -45,11 +47,6 @@ def default_input() -> str:
 
 
 @pytest.fixture(scope="module")
-def sfn_client() -> Any:
-    return boto3.client("stepfunctions")
-
-
-@pytest.fixture(scope="module")
 def sfn_execution_arn(default_input: str, sfn_client: SFNClient) -> Any:
     response = sfn_client.start_execution(
         stateMachineArn=os.environ[OutputKeys.INITIATE_RETRIEVAL_STATE_MACHINE_ARN],
@@ -68,12 +65,16 @@ def sf_history_output(sfn_client: SFNClient, sfn_execution_arn: str) -> Any:
 
 
 @pytest.fixture(autouse=True, scope="module")
-def setup() -> Any:
-    ddb_accessor = DynamoDBAccessor(os.environ[OutputKeys.METRIC_TABLE_NAME])
+def setup(ddb_client: DynamoDBClient) -> Any:
+    ddb_accessor = DynamoDBAccessor(
+        os.environ[OutputKeys.METRIC_TABLE_NAME], client=ddb_client
+    )
     ddb_accessor.insert_item(MetricRecord(pk=WORKFLOW_RUN).marshal())
 
     DAILY_QUOTA = 80 * 2**40
-    ddb_accessor = DynamoDBAccessor(os.environ[OutputKeys.GLACIER_RETRIEVAL_TABLE_NAME])
+    ddb_accessor = DynamoDBAccessor(
+        os.environ[OutputKeys.GLACIER_RETRIEVAL_TABLE_NAME], client=ddb_client
+    )
     ddb_accessor.insert_item(
         {
             "pk": {"S": "workflow_run"},
@@ -93,9 +94,8 @@ def setup() -> Any:
     s3_util.delete_all_inventory_files_from_s3(prefix=WORKFLOW_RUN)
 
 
-def test_state_machine_start_execution() -> None:
-    client: SFNClient = boto3.client("stepfunctions")
-    response = client.start_execution(
+def test_state_machine_start_execution(sfn_client: SFNClient) -> None:
+    response = sfn_client.start_execution(
         stateMachineArn=os.environ[OutputKeys.INITIATE_RETRIEVAL_STATE_MACHINE_ARN],
     )
     assert 200 == response["ResponseMetadata"]["HTTPStatusCode"]
@@ -103,9 +103,11 @@ def test_state_machine_start_execution() -> None:
 
 
 def test_initate_retrieval_ddb_updated(
-    sf_history_output: Any, sfn_client: SFNClient
+    sf_history_output: Any, sfn_client: SFNClient, ddb_client: DynamoDBClient
 ) -> None:
-    ddb_accessor = DynamoDBAccessor(os.environ[OutputKeys.GLACIER_RETRIEVAL_TABLE_NAME])
+    ddb_accessor = DynamoDBAccessor(
+        os.environ[OutputKeys.GLACIER_RETRIEVAL_TABLE_NAME], client=ddb_client
+    )
 
     csv_str = ddb_util.get_inventory_csv(VAULT_NAME)
     body_dict = ddb_util.convert_csv_to_dict(csv_str)

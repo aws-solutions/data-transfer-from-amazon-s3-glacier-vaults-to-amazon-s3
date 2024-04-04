@@ -4,6 +4,7 @@ SPDX-License-Identifier: Apache-2.0
 """
 import os
 from typing import Any, Dict, List
+from unittest.mock import MagicMock, patch
 
 import pytest
 from mypy_boto3_dynamodb import DynamoDBClient
@@ -11,6 +12,7 @@ from mypy_boto3_dynamodb.type_defs import CreateTableOutputTypeDef
 
 from solution.application.metrics.status_controller import StatusMetricController
 from solution.application.model.metric_record import MetricRecord
+from solution.application.util.exceptions import MaximumRetryLimitExceeded
 from solution.infrastructure.output_keys import OutputKeys
 
 WORKFLOW_RUN = "workflow_run_orchestrator"
@@ -101,3 +103,32 @@ def test_handle_archive_status_changed(
         ddb_metric.size_staged
         == initiale_staged_size + ARCHIVE_CHANGED_COUNT * ARCHIVE_SIZE
     )
+
+
+@patch("boto3.client")
+def test_handle_archive_status_changed_retry(
+    boto3_client_mock: MagicMock,
+    dynamodb_client: DynamoDBClient,
+    mock_records: List[dict[str, Any]],
+    metric_table_mock: CreateTableOutputTypeDef,
+) -> None:
+    controller = StatusMetricController(records=mock_records)
+    boto3_client_mock.return_value.transact_write_items.side_effect = Exception(
+        "TransactionConflict exception"
+    )
+
+    with pytest.raises(MaximumRetryLimitExceeded) as exc:
+        controller.handle_archive_status_changed()
+    assert (
+        str(exc.value)
+        == "Maximum retry limit 10 exceeded. Exception: TransactionConflict exception"
+    )
+
+
+def test_token_length(mock_records: List[dict[str, Any]]) -> None:
+    controller = StatusMetricController(records=mock_records)
+    token = controller._generate_client_request_token(mock_records)
+
+    # https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_TransactWriteItems.html#DDB-TransactWriteItems-request-ClientRequestToken
+    # TransactWriteItems ClientRequestToken max length constraint: 36
+    assert len(token) <= 36

@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Dict, List
 
 import boto3
 
+from solution.application import __boto_config__
 from solution.application.model.glacier_transfer_meta_model import (
     GlacierTransferMetadata,
 )
@@ -31,7 +32,7 @@ else:
 def generate_archives_needing_status_cleanup_s3_object(
     workflow_run: str, bucket_name: str
 ) -> str:
-    client: DynamoDBClient = boto3.client("dynamodb")
+    client: DynamoDBClient = boto3.client("dynamodb", config=__boto_config__)
 
     archives_needing_status_cleanup = collect_non_downloaded_archives(
         client, workflow_run
@@ -76,16 +77,21 @@ def query_archives_status(
 def write_result_to_s3(
     archives: List[Dict[str, Any]], workflow_run: str, bucket_name: str
 ) -> str:
-    s3_client: S3Client = boto3.client("s3")
+    s3_client: S3Client = boto3.client("s3", config=__boto_config__)
 
     items_json_data = json.dumps(archives)
     file_name = f"{workflow_run}/archives_status_cleanup/{datetime.now().strftime('%Y%m%d%H%M%S')}.json"
-    s3_client.put_object(Body=items_json_data, Bucket=bucket_name, Key=file_name)
+    s3_client.put_object(
+        Body=items_json_data,
+        Bucket=bucket_name,
+        Key=file_name,
+        ExpectedBucketOwner=os.environ["AWS_ACCOUNT_ID"],
+    )
     return file_name
 
 
 def cleanup_archives_status(archives_list: List[Dict[str, Any]]) -> None:
-    client: DynamoDBClient = boto3.client("dynamodb")
+    client: DynamoDBClient = boto3.client("dynamodb", config=__boto_config__)
 
     put_request_list = []
     for archive in archives_list:

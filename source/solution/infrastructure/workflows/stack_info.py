@@ -66,13 +66,18 @@ class Lambdas:
 
 @dataclass
 class Buckets:
-    output_bucket: s3.Bucket | None = field(default=None)
     inventory_bucket: s3.Bucket | None = field(default=None)
     access_logs_bucket: s3.Bucket | None = field(default=None)
 
 
 @dataclass
+class Interfaces:
+    output_bucket: s3.IBucket | None = field(default=None)
+
+
+@dataclass
 class Parameters:
+    destination_bucket_parameter: CfnParameter | None = field(default=None)
     enable_ddb_backup_parameter: CfnParameter | None = field(default=None)
     enable_step_function_logging_parameter: CfnParameter | None = field(default=None)
     enable_lambda_tracing_parameter: CfnParameter | None = field(default=None)
@@ -122,3 +127,4 @@ class StackInfo:
         default_factory=lambda: EventbridgeRules()
     )
     policies: Policies = field(default_factory=lambda: Policies())
+    interfaces: Interfaces = field(default_factory=lambda: Interfaces())

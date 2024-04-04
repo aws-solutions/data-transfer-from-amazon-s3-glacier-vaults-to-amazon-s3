@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, List
 
 import boto3
 
+from solution.application import __boto_config__
 from solution.application.chunking.chunk_generator import (
     calculate_chunk_size,
     generate_chunk_array,
@@ -30,7 +31,7 @@ else:
 
 
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(int(os.environ.get("LOGGING_LEVEL", logging.INFO)))
 
 
 def handle_archive_job_notification(message_str: str) -> None:
@@ -44,7 +45,7 @@ def handle_archive_job_notification(message_str: str) -> None:
         logger.info(f"ignoring incomplete event: {message_str}")
         return
 
-    ddb_client = boto3.client("dynamodb")
+    ddb_client = boto3.client("dynamodb", config=__boto_config__)
 
     archive_id = message["ArchiveId"]
     glacier_transfer_record = get_glacier_transfer_metadata(ddb_client, event.job_id)
@@ -130,12 +131,13 @@ def get_glacier_transfer_metadata(
 
 def create_multipart_upload(object_key: str, storage_class: str) -> str:
     bucket_name = os.environ[OutputKeys.OUTPUT_BUCKET_NAME]
-    s3_client: S3Client = boto3.client("s3")
+    s3_client: S3Client = boto3.client("s3", config=__boto_config__)
     multipart_response = s3_client.create_multipart_upload(
         Bucket=bucket_name,
         Key=object_key,
         ChecksumAlgorithm="SHA256",
         StorageClass=storage_class,  # type: ignore
+        ExpectedBucketOwner=os.environ["AWS_ACCOUNT_ID"],
     )
     return multipart_response["UploadId"]
 
@@ -151,7 +153,7 @@ def send_chunk_events(
 ) -> None:
     chunk_sqs_url = os.environ[OutputKeys.CHUNKS_SQS_URL]
     bucket_name = os.environ[OutputKeys.OUTPUT_BUCKET_NAME]
-    sqs = boto3.client("sqs")
+    sqs = boto3.client("sqs", config=__boto_config__)
     for index, chunk in enumerate(chunks):
         message_body = {
             "JobId": job_id,

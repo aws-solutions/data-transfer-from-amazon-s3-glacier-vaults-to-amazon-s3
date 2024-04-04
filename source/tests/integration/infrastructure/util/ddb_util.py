@@ -26,6 +26,19 @@ else:
     DynamoDBClient = object
 
 
+def ddb_client() -> DynamoDBClient:
+    if "AWS_PROFILE" in os.environ and "AWS_REGION" in os.environ:
+        session = boto3.Session(
+            profile_name=os.environ["AWS_PROFILE"],
+            region_name=os.environ["AWS_REGION"],
+        )
+    else:
+        session = boto3.Session()
+
+    client: DynamoDBClient = session.client("dynamodb")
+    return client
+
+
 def convert_csv_to_dict(csv_text: str) -> Dict[str, Any]:
     """
     Having a csv to dict conventor for easier parsing of inventory/csv files
@@ -59,7 +72,7 @@ def glacier_retrieval_table_update_item(
 
     body_dict = convert_csv_to_dict(csv_str)
 
-    client: DynamoDBClient = boto3.client("dynamodb")
+    client: Any = ddb_client()
     for _, v in body_dict.items():
         archive_id = v["ArchiveId"]
         archive_job_id = MOCK_DATA[vault_name]["initiate-job"][f"archive-retrieval:{archive_id}"]["jobId"]  # type: ignore
@@ -88,7 +101,7 @@ def glacier_retrieval_table_update_item(
 def delete_all_table_items(
     table_name: str, primary_key: str, sort_key: Optional[str] = None
 ) -> None:
-    client = boto3.client("dynamodb")
+    client: Any = ddb_client()
     response = client.scan(TableName=table_name, Select="ALL_ATTRIBUTES")
 
     while response:

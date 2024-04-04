@@ -12,7 +12,11 @@ from aws_cdk import aws_stepfunctions as sfn
 from cdk_nag import NagSuppressions
 from constructs import Construct
 
-from solution.infrastructure.helpers.distributed_map import DistributedMap
+from solution.infrastructure.helpers.distributed_map import (
+    DistributedMap,
+    ItemReaderConfig,
+    ResultConfig,
+)
 
 
 class NestedDistributedMap:
@@ -28,23 +32,15 @@ class NestedDistributedMap:
         retry: Optional[List[Dict[str, Any]]] = None,
         max_items_per_batch: Optional[int] = None,
     ) -> None:
-        inner_distributed_map_state = DistributedMap(
-            scope,
-            f"{nested_distributed_map_id}InnerDistributedMap",
-            definition=definition,
-            max_concurrency=inner_max_concurrency,
+        inner_item_reader_config = ItemReaderConfig(
             item_reader_resource="arn:aws:states:::s3:getObject",
             reader_config={
                 "InputType": "CSV",
                 "CSVHeaderLocation": "FIRST_ROW",
             },
             item_reader_parameters={"Bucket.$": "$.bucket", "Key.$": "$.item.Key"},
-            item_selector={
-                **item_selector,
-                "bucket.$": "$.bucket",
-                "key.$": "$.item.Key",
-                "item.$": "$$.Map.Item.Value",
-            },
+        )
+        inner_result_config = ResultConfig(
             result_writer={
                 "Resource": "arn:aws:states:::s3:putObject",
                 "Parameters": {
@@ -53,25 +49,32 @@ class NestedDistributedMap:
                 },
             },
             result_path="$.map_result",
+        )
+        inner_distributed_map_state = DistributedMap(
+            scope,
+            f"{nested_distributed_map_id}InnerDistributedMap",
+            definition=definition,
+            item_reader_config=inner_item_reader_config,
+            result_config=inner_result_config,
+            max_concurrency=inner_max_concurrency,
+            item_selector={
+                **item_selector,
+                "bucket.$": "$.bucket",
+                "key.$": "$.item.Key",
+                "item.$": "$$.Map.Item.Value",
+            },
             retry=retry,
             max_items_per_batch=max_items_per_batch,
         )
 
-        self.distributed_map_state = DistributedMap(
-            scope,
-            f"{nested_distributed_map_id}DistributedMap",
-            definition=inner_distributed_map_state,
-            max_concurrency=max_concurrency,
+        item_reader_config = ItemReaderConfig(
             item_reader_resource="arn:aws:states:::s3:listObjectsV2",
             item_reader_parameters={
                 "Bucket": inventory_bucket.bucket_name,
                 "Prefix.$": "$.prefix",
             },
-            item_selector={
-                **item_selector,
-                "bucket": inventory_bucket.bucket_name,
-                "item.$": "$$.Map.Item.Value",
-            },
+        )
+        result_config = ResultConfig(
             result_writer={
                 "Resource": "arn:aws:states:::s3:putObject",
                 "Parameters": {
@@ -80,6 +83,20 @@ class NestedDistributedMap:
                 },
             },
             result_path="$.map_result",
+        )
+
+        self.distributed_map_state = DistributedMap(
+            scope,
+            f"{nested_distributed_map_id}DistributedMap",
+            definition=inner_distributed_map_state,
+            item_reader_config=item_reader_config,
+            result_config=result_config,
+            max_concurrency=max_concurrency,
+            item_selector={
+                **item_selector,
+                "bucket": inventory_bucket.bucket_name,
+                "item.$": "$$.Map.Item.Value",
+            },
         )
 
     def configure_step_function(

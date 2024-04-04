@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 import boto3
 from botocore.response import StreamingBody
 
+from solution.application import __boto_config__
 from solution.application.glacier_service.glacier_typing import GlacierJobType
 from solution.application.mocking.mock_glacier_data import MOCK_DATA
 
@@ -53,7 +54,7 @@ class MockGlacierAPIs(GlacierClient):
             access_string = f"{access_string}:{archive_id}"
         result = self.output_mapping[vaultName]["initiate-job"][access_string]
         if sns_topic := jobParameters.get("SNSTopic"):
-            client: LambdaClient = boto3.client("lambda")
+            client: LambdaClient = boto3.client("lambda", config=__boto_config__)
             function_params = {
                 "account_id": accountId,
                 "vault_name": vaultName,

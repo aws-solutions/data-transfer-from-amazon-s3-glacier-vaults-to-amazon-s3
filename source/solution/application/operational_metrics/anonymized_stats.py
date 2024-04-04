@@ -17,7 +17,7 @@ from solution.application.model.workflow_metadata_model import WorkflowMetadataR
 from solution.infrastructure.output_keys import OutputKeys
 
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(int(os.environ.get("LOGGING_LEVEL", logging.INFO)))
 
 SOLUTION_BUILDERS_ENDPOINT = "https://metrics.awssolutionsbuilder.com/generic"
 

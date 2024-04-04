@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Dict, List
 
 import boto3
 
+from solution.application import __boto_config__
 from solution.application.model.glacier_transfer_model import GlacierTransferModel
 from solution.infrastructure.output_keys import OutputKeys
 
@@ -26,7 +27,7 @@ ARCHIVE_READY_WAIT = 5
 
 
 def generate_archives_s3_object(workflow_run: str, bucket_name: str) -> str:
-    client: DynamoDBClient = boto3.client("dynamodb")
+    client: DynamoDBClient = boto3.client("dynamodb", config=__boto_config__)
     archives = query_archives_needing_extension(client, workflow_run)
     return write_result_to_s3(archives, workflow_run, bucket_name)
 
@@ -66,9 +67,14 @@ def query_archives_needing_extension(
 def write_result_to_s3(
     archives: List[Dict[str, Any]], workflow_run: str, bucket_name: str
 ) -> str:
-    s3_client: S3Client = boto3.client("s3")
+    s3_client: S3Client = boto3.client("s3", config=__boto_config__)
 
     items_json_data = json.dumps(archives)
     file_name = f"{workflow_run}/download_window_extension/{datetime.now().strftime('%Y%m%d%H%M%S')}.json"
-    s3_client.put_object(Body=items_json_data, Bucket=bucket_name, Key=file_name)
+    s3_client.put_object(
+        Body=items_json_data,
+        Bucket=bucket_name,
+        Key=file_name,
+        ExpectedBucketOwner=os.environ["AWS_ACCOUNT_ID"],
+    )
     return file_name

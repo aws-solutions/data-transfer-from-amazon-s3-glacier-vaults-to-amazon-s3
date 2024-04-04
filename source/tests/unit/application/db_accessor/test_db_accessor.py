@@ -8,7 +8,9 @@ import os
 from typing import TYPE_CHECKING, Dict, Tuple
 
 import pytest
+from botocore.config import Config
 
+from solution.application import __boto_config__
 from solution.application.db_accessor.dynamoDb_accessor import DynamoDBAccessor
 from solution.infrastructure.output_keys import OutputKeys
 
@@ -114,3 +116,19 @@ def test_query_items(
     expected_items = [ddb_table_item]
     result = dynamodb_accessor_mock.query_items("job_id = :key", {":key": {"S": "123"}})
     assert result == expected_items
+
+
+def test_user_agent_on_dynamodb_client(
+    solution_user_agent: str,
+    dynamodb_client: DynamoDBClient,
+) -> None:
+    ddb_accessor = DynamoDBAccessor("")
+
+    _config = ddb_accessor.dynamodb.meta.config
+    assert type(_config) is Config
+
+    _config_user_agent_extra = _config.__getattribute__("user_agent_extra")
+    assert _config_user_agent_extra == __boto_config__.__getattribute__(
+        "user_agent_extra"
+    )
+    assert _config_user_agent_extra == solution_user_agent

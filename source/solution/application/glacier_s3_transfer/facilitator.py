@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 import boto3
 
+from solution.application import __boto_config__
 from solution.application.db_accessor.dynamoDb_accessor import DynamoDBAccessor
 from solution.application.glacier_s3_transfer.download import GlacierDownload
 from solution.application.glacier_s3_transfer.upload import S3Upload
@@ -44,7 +45,7 @@ else:
     GlacierRetrievalResponse = object
 
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(int(os.environ.get("LOGGING_LEVEL", logging.INFO)))
 
 
 class GlacierToS3Facilitator:
@@ -149,7 +150,7 @@ class GlacierToS3Facilitator:
                 "Exiting send validation events: More chunks remain for download"
             )
             return None
-        sqs = boto3.client("sqs")
+        sqs = boto3.client("sqs", config=__boto_config__)
         validation_sqs_url = os.environ[OutputKeys.VALIDATION_SQS_URL]
         message_body = {
             "WorkflowRun": self.workflow_run,

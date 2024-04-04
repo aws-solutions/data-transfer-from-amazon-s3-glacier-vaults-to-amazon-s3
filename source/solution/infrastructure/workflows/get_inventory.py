@@ -15,7 +15,11 @@ from solution.application.model.glacier_transfer_model import GlacierTransferMod
 from solution.application.operational_metrics.anonymized_stats import StatsType
 from solution.application.util.exceptions import ResourceNotFound
 from solution.infrastructure.glue_helper.glue_sfn_update import GlueSfnUpdate
-from solution.infrastructure.helpers.distributed_map import DistributedMap
+from solution.infrastructure.helpers.distributed_map import (
+    DistributedMap,
+    ItemReaderConfig,
+    ResultConfig,
+)
 from solution.infrastructure.helpers.solutions_function import SolutionsPythonFunction
 from solution.infrastructure.helpers.solutions_state_machine import (
     SolutionsStateMachine,
@@ -157,6 +161,23 @@ class Workflow:
             "GlueJobRole",
             assumed_by=iam.ServicePrincipal("glue.amazonaws.com"),
         )
+        glue_logging_policy = iam.Policy(
+            stack_info.scope,
+            "GlueLoggingPolicy",
+            statements=[
+                iam.PolicyStatement(
+                    effect=iam.Effect.ALLOW,
+                    actions=[
+                        "logs:CreateLogGroup",
+                        "logs:CreateLogStream",
+                        "logs:PutLogEvents",
+                    ],
+                    resources=["arn:aws:logs:*:*:*:/aws-glue/*"],
+                ),
+            ],
+        )
+
+        glue_job_role.attach_inline_policy(glue_logging_policy)
         stack_info.tables.metric_table.grant_read_write_data(glue_job_role)
         stack_info.buckets.inventory_bucket.grant_read_write(glue_job_role)
 
@@ -176,6 +197,9 @@ class Workflow:
             default_arguments={
                 "--workflow_run_name": "",
                 "--metric_table_name": stack_info.tables.metric_table.table_name,
+                "--enable-job-insights": "true",
+                "--enable-continuous-cloudwatch-log": "true",
+                "--job-language": "python",
             },
         )
 
@@ -376,10 +400,18 @@ class Workflow:
             backoff_rate=5.0,
         )
 
+        item_reader_config = ItemReaderConfig()
+
+        result_config = ResultConfig(
+            result_path="$.upload_part_result",
+        )
+
         distributed_map_state = DistributedMap(
             stack_info.scope,
             "InventoryChunkRetrievalDistributedMap",
             definition=inventory_retrieval_lambda,
+            item_reader_config=item_reader_config,
+            result_config=result_config,
             items_path="$.chunking_result.body",
             item_selector={
                 "JobId.$": "$.initiate_job_result.Payload.jobId",
@@ -392,7 +424,6 @@ class Workflow:
                 "PartNumber.$": "States.MathAdd($$.Map.Item.Index, 1)",
                 "WorkflowRun.$": "$.workflow_run",
             },
-            result_path="$.upload_part_result",
             retry=retrieve_inventory_map_retry.custom_state_params(),
         )
 
@@ -497,7 +528,7 @@ class Workflow:
                 "ACCOUNT_ID": Aws.ACCOUNT_ID,
                 "REGION": Aws.REGION,
                 "VERSION": stack_info.scope.node.try_get_context("SOLUTION_VERSION")
-                or "v1.0.0",
+                or "v1.1.0",
                 "SOLUTION_ID": stack_info.scope.node.try_get_context("SOLUTION_ID")
                 or "SO0293",
                 "SEND_ANONYMIZED_STATISTICS": "Yes",
@@ -1035,5 +1066,16 @@ class Workflow:
                         f"Resource::<{glacier_retrieval_table_logical_id}.Arn>/index/*",
                     ],
                 },
+            ],
+        )
+
+        NagSuppressions.add_resource_suppressions(
+            glue_logging_policy,
+            [
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "IAM policy needed to allow Glue jobs to write logs to Amazon CloudWatch",
+                    "appliesTo": ["Resource::arn:aws:logs:*:*:*:/aws-glue/*"],
+                }
             ],
         )

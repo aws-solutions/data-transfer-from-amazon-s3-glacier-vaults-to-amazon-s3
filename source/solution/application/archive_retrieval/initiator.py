@@ -5,12 +5,14 @@ SPDX-License-Identifier: Apache-2.0
 
 import logging
 import os
+from concurrent import futures
 from datetime import datetime
 from timeit import default_timer as timer
 from typing import TYPE_CHECKING, Any, List
 
 import boto3
 
+from solution.application import __boto_config__
 from solution.application.chunking.chunk_generator import calculate_chunk_size
 from solution.application.glacier_service.glacier_typing import GlacierJobType
 from solution.application.model import events
@@ -20,6 +22,7 @@ from solution.application.model.glacier_transfer_meta_model import (
 )
 from solution.application.model.glacier_transfer_model import GlacierTransferModel
 from solution.application.model.partition_metric_record import PartitionMetricRecord
+from solution.infrastructure.output_keys import OutputKeys
 
 if TYPE_CHECKING:
     from mypy_boto3_dynamodb import DynamoDBClient
@@ -33,11 +36,7 @@ else:
     JobParametersTypeDef = object
 
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-
-from concurrent import futures
-
-from solution.infrastructure.output_keys import OutputKeys
+logger.setLevel(int(os.environ.get("LOGGING_LEVEL", logging.INFO)))
 
 
 def initiate_retrieval(
@@ -46,7 +45,7 @@ def initiate_retrieval(
     items: List[events.InitiateArchiveRetrievalItem],
     glacier_client: GlacierClient,
 ) -> None:
-    ddb_client: DynamoDBClient = boto3.client("dynamodb")
+    ddb_client: DynamoDBClient = boto3.client("dynamodb", config=__boto_config__)
 
     if not items:
         return
@@ -91,7 +90,7 @@ def extend_retrieval(
     items: List[events.ExtendArchiveRetrievalItem],
     glacier_client: GlacierClient,
 ) -> None:
-    ddb_client: DynamoDBClient = boto3.client("dynamodb")
+    ddb_client: DynamoDBClient = boto3.client("dynamodb", config=__boto_config__)
 
     if not items:
         return

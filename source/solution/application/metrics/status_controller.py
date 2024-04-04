@@ -11,11 +11,13 @@ from typing import TYPE_CHECKING, Any, List, Optional
 
 import boto3
 
+from solution.application import __boto_config__
 from solution.application.glacier_service.glacier_typing import GlacierJobType
 from solution.application.model.glacier_transfer_meta_model import (
     GlacierTransferMetadata,
 )
 from solution.application.model.glacier_transfer_model import GlacierTransferModel
+from solution.application.util.retry import retry
 from solution.infrastructure.output_keys import OutputKeys
 
 if TYPE_CHECKING:
@@ -27,11 +29,12 @@ else:
 
 
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(int(os.environ.get("LOGGING_LEVEL", logging.INFO)))
 
 
 class StatusMetricController:
     def __init__(self, records: List[dict[str, Any]]) -> None:
+        self.counted_logs: List[str] = []
         self.records = records
         self.requested_count = 0
         self.staged_count = 0
@@ -39,9 +42,12 @@ class StatusMetricController:
         self.requested_size = 0
         self.staged_size = 0
         self.downloaded_size = 0
-        self.client_request_token = hashlib.md5(  # nosec
-            json.dumps(records, sort_keys=True).encode()
-        ).hexdigest()
+        self.client_request_token = self._generate_client_request_token(records)
+
+    def _generate_client_request_token(self, records: List[dict[str, Any]]) -> str:
+        token = hashlib.sha256(json.dumps(records, sort_keys=True).encode()).hexdigest()
+        # Slice to extract every other hexadecimal character and concatenate the last 4 characters to generate a 36 character long token
+        return token[::2] + token[-4:]
 
     def handle_archive_status_changed(self) -> None:
         for record in self.records:
@@ -56,9 +62,12 @@ class StatusMetricController:
                     )
         self.update_metric_query()
 
+    @retry(max_retries=10, raise_exception=True)
     def update_metric_query(self) -> None:
         if self.records:
-            ddb_client: DynamoDBClient = boto3.client("dynamodb")
+            ddb_client: DynamoDBClient = boto3.client(
+                "dynamodb", config=__boto_config__
+            )
 
             update_expression = "ADD"
             expression_attribute_values = {}
@@ -94,6 +103,9 @@ class StatusMetricController:
                 ClientRequestToken=self.client_request_token,
             )
 
+            for entry in self.counted_logs:
+                logger.info(entry)
+
     def increase_archive_status_metric_counter(
         self, new_image: dict[str, Any], old_image: Optional[dict[str, Any]] = None
     ) -> None:
@@ -103,8 +115,8 @@ class StatusMetricController:
         if new_metadata.retrieval_type != GlacierJobType.ARCHIVE_RETRIEVAL:
             return
 
-        if not new_metadata.size:
-            logger.error(f"Failed to read archive's size from {new_metadata}")
+        if not new_metadata.size or not new_metadata.archive_id:
+            logger.error(f"Failed to read archive's metadata from {new_metadata}")
             return
 
         new_status = new_metadata.retrieve_status.split("/")[-1]
@@ -130,9 +142,14 @@ class StatusMetricController:
         }
         result_status = status_mapping.get((old_status, new_status), None)
 
+        archive_id = GlacierTransferModel(
+            workflow_run=new_metadata.workflow_run,
+            glacier_object_id=new_metadata.archive_id,
+        ).key["pk"]
         if result_status:
-            logger.info(
-                f"Archive: {new_metadata.workflow_run}|{new_metadata.archive_id} - status: {new_status}"
+            logger.debug(f"Archive:{archive_id} - handled_status:{new_status}")
+            self.counted_logs.append(
+                f"Archive:{archive_id} - counted_status:{new_status}"
             )
             setattr(
                 self,
@@ -145,6 +162,4 @@ class StatusMetricController:
                 getattr(self, f"{result_status}_size") + new_metadata.size,
             )
         else:
-            logger.info(
-                f"Archive: {new_metadata.workflow_run}|{new_metadata.glacier_object_id} - unhandled status: {new_status}"
-            )
+            logger.info(f"Archive:{archive_id} - unhandled_status:{new_status}")

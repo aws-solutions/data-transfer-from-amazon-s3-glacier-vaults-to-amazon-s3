@@ -15,35 +15,36 @@ from solution.infrastructure.output_keys import OutputKeys
 
 if TYPE_CHECKING:
     from mypy_boto3_dynamodb import DynamoDBClient
+    from mypy_boto3_lambda import LambdaClient
     from mypy_boto3_sns import SNSClient
 else:
     DynamoDBClient = object
     SNSClient = object
-    Table = object
+    LambdaClient = object
 
 
-def test_table_access_pattern_and_partition_key() -> None:
+def test_table_access_pattern_and_partition_key(ddb_client: DynamoDBClient) -> None:
     table_name = os.environ[OutputKeys.ASYNC_FACILITATOR_TABLE_NAME]
-    client: DynamoDBClient = boto3.client("dynamodb")
 
     key = {"job_id": {"S": "testing"}}
     value = str(uuid.uuid4())
 
-    client.put_item(
+    ddb_client.put_item(
         TableName=table_name, Item={**key, **{"testing_value": {"S": value}}}
     )
     assert (
         value
-        == client.get_item(TableName=table_name, Key=key)["Item"]["testing_value"]["S"]
+        == ddb_client.get_item(TableName=table_name, Key=key)["Item"]["testing_value"][
+            "S"
+        ]
     )
-    client.delete_item(TableName=table_name, Key=key)
+    ddb_client.delete_item(TableName=table_name, Key=key)
 
 
-def test_topic_publish() -> None:
+def test_topic_publish(sns_client: SNSClient) -> None:
     topic_arn = os.environ[OutputKeys.ASYNC_FACILITATOR_TOPIC_ARN]
-    client: SNSClient = boto3.client("sns")
 
-    response = client.publish(
+    response = sns_client.publish(
         Message=json.dumps(
             {
                 "Action": "InventoryRetrieval",
@@ -57,16 +58,14 @@ def test_topic_publish() -> None:
     assert 200 == response["ResponseMetadata"]["HTTPStatusCode"]
 
 
-def test_lambda_invoked() -> None:
+def test_lambda_invoked(lambda_client: LambdaClient) -> None:
     lambda_name = os.environ[OutputKeys.ASYNC_FACILITATOR_LAMBDA_NAME]
-    client = boto3.client("lambda")
-    response = client.invoke(FunctionName=lambda_name)
+    response = lambda_client.invoke(FunctionName=lambda_name)
     assert 200 == response["ResponseMetadata"]["HTTPStatusCode"]
 
 
-def test_lambda_invoked_by_sns() -> None:
+def test_lambda_invoked_by_sns(sns_client: SNSClient) -> None:
     topic_arn = os.environ[OutputKeys.ASYNC_FACILITATOR_TOPIC_ARN]
-    sns_client: SNSClient = boto3.client("sns")
     response = sns_client.publish(
         Message=json.dumps(
             {

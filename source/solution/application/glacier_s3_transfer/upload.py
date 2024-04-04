@@ -3,11 +3,13 @@ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 """
 
+import os
 from base64 import b64decode, b64encode
 from typing import TYPE_CHECKING
 
 import boto3
 
+from solution.application import __boto_config__
 from solution.application.hashing.s3_hash import S3Hash
 from solution.application.model.glacier_transfer_part_model import GlacierTransferPart
 
@@ -35,7 +37,7 @@ class S3Upload:
         key: str,
         upload_id: str,
     ) -> None:
-        self.s3: S3Client = boto3.client("s3")
+        self.s3: S3Client = boto3.client("s3", config=__boto_config__)
 
         self.bucket_name = bucket_name
         self.key = key
@@ -52,6 +54,7 @@ class S3Upload:
             UploadId=self.upload_id,
             ChecksumAlgorithm="SHA256",
             ChecksumSHA256=checksum,
+            ExpectedBucketOwner=os.environ["AWS_ACCOUNT_ID"],
         )
         return S3Upload._build_part(part_number, response["ETag"], checksum)
 
@@ -74,12 +77,15 @@ class S3Upload:
             UploadId=self.upload_id,
             MultipartUpload={"Parts": self.parts},
             ChecksumSHA256=b64encode(s3_hash.digest()).decode("ascii"),
+            ExpectedBucketOwner=os.environ["AWS_ACCOUNT_ID"],
         )
 
     def get_file_size(self) -> int:
-        return self.s3.head_object(Bucket=self.bucket_name, Key=self.key)[
-            "ContentLength"
-        ]
+        return self.s3.head_object(
+            Bucket=self.bucket_name,
+            Key=self.key,
+            ExpectedBucketOwner=os.environ["AWS_ACCOUNT_ID"],
+        )["ContentLength"]
 
     @staticmethod
     def _build_part(

@@ -23,18 +23,6 @@ else:
 
 
 @pytest.fixture(scope="module")
-def s3_client() -> S3Client:
-    client: S3Client = boto3.client("s3")
-    return client
-
-
-@pytest.fixture(scope="module")
-def sfn_client() -> SFNClient:
-    client: SFNClient = boto3.client("stepfunctions")
-    return client
-
-
-@pytest.fixture(scope="module")
 def bucket() -> str:
     return os.environ[OutputKeys.OUTPUT_BUCKET_NAME]
 

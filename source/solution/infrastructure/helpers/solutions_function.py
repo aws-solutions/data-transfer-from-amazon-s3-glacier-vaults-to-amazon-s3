@@ -3,6 +3,7 @@ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 """
 
+import logging
 from typing import Any
 
 import aws_cdk.aws_iam as iam
@@ -13,7 +14,7 @@ from constructs import Construct
 
 from solution.application.util.exceptions import ResourceNotFound
 
-DEFAULT_RUNTIME = Runtime.PYTHON_3_10
+DEFAULT_RUNTIME = Runtime.PYTHON_3_11
 
 
 class SolutionsPythonFunction(Function):
@@ -31,9 +32,12 @@ class SolutionsPythonFunction(Function):
         if not kwargs.get("role"):
             kwargs["role"] = self._create_role()
 
-        # set runtime to Python 3.10 unless a runtime is passed
+        # set runtime to Python 3.11 unless a runtime is passed
         if not kwargs.get("runtime"):
             kwargs["runtime"] = DEFAULT_RUNTIME
+
+        # create default environment variable LOGGING_LEVEL
+        kwargs.setdefault("environment", {})["LOGGING_LEVEL"] = str(logging.INFO)
 
         # initialize the parent Function
         super().__init__(scope, construct_id, **kwargs)

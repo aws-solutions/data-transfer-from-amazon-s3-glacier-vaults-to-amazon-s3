@@ -6,7 +6,8 @@ SPDX-License-Identifier: Apache-2.0
 from typing import TYPE_CHECKING
 
 import boto3
-from botocore.config import Config
+
+from solution.application import __boto_config__
 
 if TYPE_CHECKING:
     from mypy_boto3_glacier.client import GlacierClient
@@ -34,6 +35,5 @@ class GlacierAPIsFactory:
             from solution.application.mocking.mock_glacier_apis import MockGlacierAPIs
 
             return MockGlacierAPIs()
-        config: Config = Config(user_agent_extra=f"AwsSolution/SO0293/v1.0.0")
-        client: GlacierClient = boto3.client("glacier", config=config)
+        client: GlacierClient = boto3.client("glacier", config=__boto_config__)
         return client

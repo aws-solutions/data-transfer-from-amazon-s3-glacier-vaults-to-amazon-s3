@@ -58,11 +58,6 @@ def setup() -> Any:
 
 
 @pytest.fixture(scope="module")
-def sfn_client() -> Any:
-    return boto3.client("stepfunctions")
-
-
-@pytest.fixture(scope="module")
 def sfn_execution_arn(default_input: str, sfn_client: SFNClient) -> Any:
     response = sfn_client.start_execution(
         stateMachineArn=os.environ[
@@ -82,9 +77,10 @@ def sf_history_output(sfn_client: SFNClient, sfn_execution_arn: str) -> Any:
     )
 
 
-def test_state_machine_start_execution(default_input: str) -> None:
-    client: SFNClient = boto3.client("stepfunctions")
-    response = client.start_execution(
+def test_state_machine_start_execution(
+    default_input: str, sfn_client: SFNClient
+) -> None:
+    response = sfn_client.start_execution(
         stateMachineArn=os.environ[
             OutputKeys.CLOUDWATCH_DASHBOARD_UPDATE_STATE_MACHINE_ARN
         ]

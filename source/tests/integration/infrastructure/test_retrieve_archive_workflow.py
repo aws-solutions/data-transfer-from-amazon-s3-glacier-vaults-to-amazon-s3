@@ -22,11 +22,14 @@ from solution.application.model.glacier_transfer_meta_model import (
 from solution.infrastructure.output_keys import OutputKeys
 
 if TYPE_CHECKING:
+    from mypy_boto3_dynamodb import DynamoDBClient
     from mypy_boto3_lambda import LambdaClient
     from mypy_boto3_s3 import S3Client
 else:
     LambdaClient = object
     S3Client = object
+    DynamoDBClient = object
+
 
 import os
 
@@ -46,18 +49,6 @@ def setup() -> Any:
         os.environ[OutputKeys.GLACIER_RETRIEVAL_TABLE_NAME], "pk", "sk"
     )
     s3_util.delete_archives_from_s3(prefix=WORKFLOW_RUN)
-
-
-@pytest.fixture(scope="module")
-def s3_client() -> S3Client:
-    client: S3Client = boto3.client("s3")
-    return client
-
-
-@pytest.fixture(scope="module")
-def lambda_client() -> LambdaClient:
-    client: LambdaClient = boto3.client("lambda")
-    return client
 
 
 def invoke_initiate_archive_retrieval_lambda(
@@ -123,7 +114,7 @@ def build_initiate_retrieval_input(
 
 
 def test_initiate_retrieval_batch(
-    s3_client: S3Client, lambda_client: LambdaClient
+    s3_client: S3Client, lambda_client: LambdaClient, ddb_client: DynamoDBClient
 ) -> None:
     vault_name = "test_small_vault"
     sns_topic = os.environ[OutputKeys.ASYNC_FACILITATOR_TOPIC_ARN]
@@ -135,7 +126,9 @@ def test_initiate_retrieval_batch(
         lambda_client, sns_topic, initiate_retrievals
     )
 
-    ddb_accessor = DynamoDBAccessor(os.environ[OutputKeys.GLACIER_RETRIEVAL_TABLE_NAME])
+    ddb_accessor = DynamoDBAccessor(
+        os.environ[OutputKeys.GLACIER_RETRIEVAL_TABLE_NAME], client=ddb_client
+    )
     waiter = s3_client.get_waiter("object_exists")
     try:
         for archive in initiate_retrievals:

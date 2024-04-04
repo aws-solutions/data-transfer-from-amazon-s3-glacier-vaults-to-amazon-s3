@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 import boto3
 
+from solution.application import __boto_config__
 from solution.application.model.facilitator import AsyncRecord, JobCompletionEvent
 from solution.application.model.metric_record import MetricRecord
 from solution.infrastructure.output_keys import OutputKeys
@@ -21,11 +22,11 @@ else:
 
 
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(int(os.environ.get("LOGGING_LEVEL", logging.INFO)))
 
 
 def check_workflow_completion(workflow_run: str) -> str:
-    ddb_client: DynamoDBClient = boto3.client("dynamodb")
+    ddb_client: DynamoDBClient = boto3.client("dynamodb", config=__boto_config__)
     if is_workflow_completed(workflow_run, ddb_client):
         job_id = f"{workflow_run}|COMPLETION"
         async_record = AsyncRecord(

@@ -4,9 +4,12 @@ SPDX-License-Identifier: Apache-2.0
 """
 
 import logging
+import os
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import boto3
+
+from solution.application import __boto_config__
 
 if TYPE_CHECKING:
     from mypy_boto3_dynamodb import DynamoDBClient
@@ -14,12 +17,16 @@ else:
     DynamoDBClient = object
 
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(int(os.environ.get("LOGGING_LEVEL", logging.INFO)))
 
 
 class DynamoDBAccessor:
-    def __init__(self, table_name: str) -> None:
-        self.dynamodb: DynamoDBClient = boto3.client("dynamodb")
+    def __init__(
+        self, table_name: str, client: Optional[DynamoDBClient] = None
+    ) -> None:
+        self.dynamodb: DynamoDBClient = client or boto3.client(
+            "dynamodb", config=__boto_config__
+        )
         self.table_name = table_name
 
     def insert_item(self, item: Dict[str, Any]) -> None:

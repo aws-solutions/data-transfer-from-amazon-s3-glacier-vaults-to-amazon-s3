@@ -11,6 +11,7 @@ import aws_cdk as core
 import aws_cdk.assertions as assertions
 import pytest
 
+from solution.application.model.glacier_transfer_model import GlacierTransferModel
 from solution.infrastructure.output_keys import OutputKeys
 from solution.infrastructure.stack import SolutionStack
 
@@ -213,8 +214,7 @@ def test_buckets_created(stack: SolutionStack, template: assertions.Template) ->
             }
         },
     )
-    assert 2 == len(resources)
-    assert get_logical_id(stack, ["OutputBucket"]) in resources
+    assert 1 == len(resources)
     assert get_logical_id(stack, ["InventoryBucket"]) in resources
 
 
@@ -231,7 +231,7 @@ def test_chunk_retrieval_lambda_created(
         props={
             "Properties": {
                 "Handler": "solution.application.handlers.archive_retrieval",
-                "Runtime": "python3.10",
+                "Runtime": "python3.11",
                 "MemorySize": 1536,
                 "Timeout": 900,
             },
@@ -257,7 +257,7 @@ def test_archive_validation_lambda_created(
         props={
             "Properties": {
                 "Handler": "solution.application.handlers.archive_validation",
-                "Runtime": "python3.10",
+                "Runtime": "python3.11",
                 "MemorySize": 256,
                 "Timeout": 900,
             },
@@ -283,7 +283,7 @@ def test_inventory_chunk_determination_created(
         props={
             "Properties": {
                 "Handler": "solution.application.handlers.inventory_chunking",
-                "Runtime": "python3.10",
+                "Runtime": "python3.11",
             },
         },
     )
@@ -314,7 +314,7 @@ def test_facilitator_lambda_created(
             },
             "Handler": "solution.application.handlers.async_facilitator",
             "MemorySize": 256,
-            "Runtime": "python3.10",
+            "Runtime": "python3.11",
         },
     )
 
@@ -503,8 +503,6 @@ def test_facilitator_default_policy(
 
 def test_glue_job_created(stack: SolutionStack, template: assertions.Template) -> None:
     inventory_bucket_logical_id = get_logical_id(stack, ["InventoryBucket"])
-    glue_job_role_logical_id = get_logical_id(stack, ["GlueJobRole"])
-    metric_table_logical_id = get_logical_id(stack, ["MetricTable"])
     resources = template.find_resources(
         type="AWS::Glue::Job",
         props={
@@ -705,6 +703,39 @@ def test_glue_job_policy(stack: SolutionStack, template: assertions.Template) ->
     )
 
 
+def test_glue_job_logging_policy(
+    stack: SolutionStack, template: assertions.Template
+) -> None:
+    glue_job_role_logical_id = get_logical_id(stack, ["GlueJobRole"])
+    resources_list = ["GlueLoggingPolicy"]
+    assert_resource_name_has_correct_type_and_props(
+        stack,
+        template,
+        resources_list=resources_list,
+        cfn_type="AWS::IAM::Policy",
+        props={
+            "Properties": {
+                "PolicyDocument": {
+                    "Statement": [
+                        {
+                            "Action": [
+                                "logs:CreateLogGroup",
+                                "logs:CreateLogStream",
+                                "logs:PutLogEvents",
+                            ],
+                            "Effect": "Allow",
+                            "Resource": "arn:aws:logs:*:*:*:/aws-glue/*",
+                        },
+                    ]
+                },
+                "Roles": [
+                    {"Ref": glue_job_role_logical_id},
+                ],
+            },
+        },
+    )
+
+
 def test_orchestrator_step_function_created(
     stack: SolutionStack, template: assertions.Template
 ) -> None:
@@ -735,7 +766,7 @@ def test_cloudwatch_dashboard(
                 "Fn::Join": [
                     "",
                     [
-                        "Data-Transfer-from-Amazon-S3-Glacier-to-Amazon-S3-Dashboard-",
+                        "Data-transfer-from-Amazon-S3-Glacier-to-Amazon-S3-Dashboard-",
                         {
                             "Fn::Select": [
                                 2,
@@ -915,3 +946,81 @@ def test_sqs_queues_encrypted(
     stack: SolutionStack, template: assertions.Template
 ) -> None:
     template.all_resources_properties("AWS::SQS::Queue", {"SqsManagedSseEnabled": True})
+
+
+def test_logs_insights_query(
+    stack: SolutionStack, template: assertions.Template
+) -> None:
+    lambdas_logical_ids = [
+        get_logical_id(stack, ["InitiateArchiveRetrieval"]),
+        get_logical_id(stack, ["NotificationsProcessor"]),
+        get_logical_id(stack, ["ChunkRetrieval"]),
+        get_logical_id(stack, ["ArchiveValidation"]),
+        get_logical_id(stack, ["MetricsProcessor"]),
+        get_logical_id(stack, ["ArchivesNeedingWindowExtension"]),
+        get_logical_id(stack, ["ExtendDownloadInitiateRetrieval"]),
+    ]
+
+    Log_group_names = [
+        {"Fn::Join": ["", ["/aws/lambda/", {"Ref": lambda_logical_id}]]}
+        for lambda_logical_id in lambdas_logical_ids
+    ]
+
+    template.has_resource_properties(
+        "AWS::Logs::QueryDefinition",
+        {
+            "LogGroupNames": Log_group_names,
+            "Name": {
+                "Fn::Join": [
+                    "",
+                    [
+                        "LambdasErrorQuery-",
+                        {
+                            "Fn::Select": [
+                                2,
+                                {"Fn::Split": ["/", {"Ref": "AWS::StackId"}]},
+                            ]
+                        },
+                    ],
+                ]
+            },
+            "QueryString": "fields @timestamp, @message, @logStream, @log         | filter @message like /error/ or @message like /Error/ or @message like /ERROR/         | filter @message not like /segmentation fault Runtime/         | filter @message not like /TransactionConflict/         | sort by @timestamp desc",
+        },
+    )
+
+    for status in (
+        GlacierTransferModel.StatusCode.REQUESTED,
+        GlacierTransferModel.StatusCode.STAGED,
+        GlacierTransferModel.StatusCode.DOWNLOADED,
+    ):
+        template.has_resource_properties(
+            "AWS::Logs::QueryDefinition",
+            {
+                "LogGroupNames": [
+                    {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "/aws/lambda/",
+                                {"Ref": get_logical_id(stack, ["MetricsProcessor"])},
+                            ],
+                        ]
+                    }
+                ],
+                "Name": {
+                    "Fn::Join": [
+                        "",
+                        [
+                            f"{status}CounterQuery-",
+                            {
+                                "Fn::Select": [
+                                    2,
+                                    {"Fn::Split": ["/", {"Ref": "AWS::StackId"}]},
+                                ]
+                            },
+                        ],
+                    ]
+                },
+                "QueryString": f"fields @timestamp, @message, @logStream, @log         | filter @message like /counted_status:{status}/         | parse @message '[INFO]\t*\t*\tArchive:*|* - counted_status:{status}' as parsed_time, parsed_id, parsed_workflow, parsed_archive         | stats count_distinct(parsed_archive) as unique_downloaded_archives by parsed_workflow",
+            },
+        )

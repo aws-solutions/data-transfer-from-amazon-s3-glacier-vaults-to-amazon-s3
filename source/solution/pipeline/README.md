@@ -1,4 +1,4 @@
-# Data Transfer from Amazon S3 Glacier vaults to Amazon S3 build pipeline
+# Data transfer from Amazon S3 Glacier vaults to Amazon S3 build pipeline
 
 This project utilizes cdk pipelines for setting up a development pipeline that builds, deploys, and tests the solution.
 

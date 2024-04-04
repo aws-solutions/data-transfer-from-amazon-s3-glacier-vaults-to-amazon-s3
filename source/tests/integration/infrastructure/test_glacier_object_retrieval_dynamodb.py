@@ -20,32 +20,32 @@ else:
     Table = object
 
 
-def test_table_access_pattern_and_partition_key() -> None:
+def test_table_access_pattern_and_partition_key(ddb_client: DynamoDBClient) -> None:
     table_name = os.environ[OutputKeys.GLACIER_RETRIEVAL_TABLE_NAME]
-    client: DynamoDBClient = boto3.client("dynamodb")
 
     key = {"pk": {"S": "pk-testing"}, "sk": {"S": "sk-testing"}}
     value = str(uuid.uuid4())
 
-    client.put_item(
+    ddb_client.put_item(
         TableName=table_name, Item={**key, **{"testing_value": {"S": value}}}
     )
     assert (
         value
-        == client.get_item(TableName=table_name, Key=key)["Item"]["testing_value"]["S"]
+        == ddb_client.get_item(TableName=table_name, Key=key)["Item"]["testing_value"][
+            "S"
+        ]
     )
-    client.delete_item(TableName=table_name, Key=key)
+    ddb_client.delete_item(TableName=table_name, Key=key)
 
 
-def test_gsi_access_pattern_and_partition_key() -> None:
+def test_gsi_access_pattern_and_partition_key(ddb_client: DynamoDBClient) -> None:
     table_name = os.environ[OutputKeys.GLACIER_RETRIEVAL_TABLE_NAME]
     index_name = os.environ[OutputKeys.GLACIER_RETRIEVAL_JOB_INDEX_NAME]
-    client: DynamoDBClient = boto3.client("dynamodb")
 
     key = {"pk": {"S": "pk-testing-gsi"}, "sk": {"S": "sk-testing-gsi"}}
     value = str(uuid.uuid4())
 
-    client.put_item(
+    ddb_client.put_item(
         TableName=table_name,
         Item={
             **key,
@@ -58,7 +58,7 @@ def test_gsi_access_pattern_and_partition_key() -> None:
     # Add 10 sec delay to allow the data to propagate to the index (GSI replica is eventually consistent)
     time.sleep(10)
 
-    query_response = client.query(
+    query_response = ddb_client.query(
         TableName=table_name,
         IndexName=index_name,
         KeyConditionExpression="job_id = :ji",
@@ -66,4 +66,4 @@ def test_gsi_access_pattern_and_partition_key() -> None:
     )
     assert 1 == query_response["Count"]
     assert value == query_response["Items"][0]["testing_value"]["S"]
-    client.delete_item(TableName=table_name, Key=key)
+    ddb_client.delete_item(TableName=table_name, Key=key)

@@ -10,7 +10,11 @@ from aws_cdk import aws_stepfunctions_tasks as tasks
 from cdk_nag import NagSuppressions
 
 from solution.application.util.exceptions import ResourceNotFound
-from solution.infrastructure.helpers.distributed_map import DistributedMap
+from solution.infrastructure.helpers.distributed_map import (
+    DistributedMap,
+    ItemReaderConfig,
+    ResultConfig,
+)
 from solution.infrastructure.helpers.solutions_function import SolutionsPythonFunction
 from solution.infrastructure.helpers.solutions_state_machine import (
     SolutionsStateMachine,
@@ -95,28 +99,36 @@ class Workflow:
             ]
         )
 
-        archives_status_cleanup_map_state = DistributedMap(
-            stack_info.scope,
-            "ArchivesStatusCleanupDistributedMap",
-            definition=cleanup_archives_status_lambda_task,
-            max_concurrency=10,
+        item_reader_config = ItemReaderConfig(
             item_reader_resource="arn:aws:states:::s3:getObject",
+            reader_config={"InputType": "JSON"},
             item_reader_parameters={
                 "Bucket": stack_info.buckets.inventory_bucket.bucket_name,
                 "Key.$": "$.archives_needing_status_cleanup.s3_key",
             },
-            reader_config={"InputType": "JSON"},
-            item_selector={
-                "item.$": "$$.Map.Item.Value",
-                "workflow_run.$": "$.workflow_run",
-            },
-            result_path="$.archives_status_cleanup_map_result",
+        )
+
+        result_config = ResultConfig(
             result_writer={
                 "Resource": "arn:aws:states:::s3:putObject",
                 "Parameters": {
                     "Bucket": stack_info.buckets.inventory_bucket.bucket_name,
                     "Prefix.$": f"States.Format('{{}}/ArchivesStatusCleanupDistributedMapOutput', $.workflow_run)",
                 },
+            },
+            result_path="$.archives_status_cleanup_map_result",
+        )
+
+        archives_status_cleanup_map_state = DistributedMap(
+            stack_info.scope,
+            "ArchivesStatusCleanupDistributedMap",
+            definition=cleanup_archives_status_lambda_task,
+            item_reader_config=item_reader_config,
+            result_config=result_config,
+            max_concurrency=10,
+            item_selector={
+                "item.$": "$$.Map.Item.Value",
+                "workflow_run.$": "$.workflow_run",
             },
             max_items_per_batch=10000,
         )

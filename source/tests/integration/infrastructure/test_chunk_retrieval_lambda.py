@@ -16,15 +16,14 @@ else:
     LambdaClient = object
 
 
-def test_lambda_invoke() -> None:
+def test_lambda_invoke(lambda_client: LambdaClient) -> None:
     # ClientError exception will be thrown if the invocation of the Lambda function fails.
 
-    client: LambdaClient = boto3.client("lambda")
     lambda_name = os.environ[OutputKeys.CHUNK_RETRIEVAL_LAMBDA_ARN]
 
     test_event = ""
 
-    client.invoke(
+    lambda_client.invoke(
         FunctionName=lambda_name,
         InvocationType="RequestResponse",
         Payload=test_event,

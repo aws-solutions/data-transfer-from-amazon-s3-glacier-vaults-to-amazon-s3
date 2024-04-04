@@ -24,6 +24,9 @@ class BaseAutomationDocument(ExecuteScriptAutomationDocument):
         topic_arn: str,
         state_machine_arn: str,
         document_description: str,
+        region: str,
+        bucket_name: str,
+        allow_cross_region_data_transfer: bool,
     ) -> None:
         super().__init__(ssm_role, document_description)
         self.script = self._read_script()
@@ -33,8 +36,12 @@ class BaseAutomationDocument(ExecuteScriptAutomationDocument):
             "description": "{{ Description }}",  # Reusing Possible User inputs
             "name_override_presigned_url": "{{ NamingOverrideFile }}",  # Reusing Possible User inputs
             "s3_storage_class": "{{ S3StorageClass }}",
+            "acknowledge_cross_region": "{{ AcknowledgeAdditionalCostForCrossRegionTransfer }}",
+            "bucket_name": bucket_name,
+            "region": region,
             "sns_topic_arn": topic_arn,
             "state_machine_arn": state_machine_arn,
+            "allow_cross_region_data_transfer": allow_cross_region_data_transfer,
         }
 
     @property
@@ -50,13 +57,13 @@ class BaseAutomationDocument(ExecuteScriptAutomationDocument):
                 "type": "String",
                 "default": "",
                 "description": "(Optional) Input can be used to provide an extended description of the document.",
-                "allowedPattern": "^(?:[\S\s]*)$",
+                "allowedPattern": r"^(?:[\S\s]*)$",
             },
             "NamingOverrideFile": {
                 "type": "String",
                 "default": "",
-                "description": "(Optional) Input can be used to provide a pre-signed URL for naming override file.",
-                "allowedPattern": "^(?:https://[a-zA-Z0-9.-]+\.s3\.[a-zA-Z0-9.-]+\.amazonaws\.com(?:/[^\s]*)?)?$",
+                "description": "(Optional) Input can be used to provide a pre-signed URL for the naming override file.",
+                "allowedPattern": r"^(?:https://[a-zA-Z0-9.-]+\.s3\.[a-zA-Z0-9.-]+\.amazonaws\.com(?:/[^\s]*)?)?$",
             },
             "S3StorageClass": {
                 "type": "String",
@@ -64,7 +71,13 @@ class BaseAutomationDocument(ExecuteScriptAutomationDocument):
                     iter(s3_storage_class_mapping)
                 ),  # default storage class
                 "allowedValues": list(s3_storage_class_mapping.keys()),
-                "description": "(Required) Input to specify the S3 storage class",
+                "description": "(Required) Input to specify the S3 storage class for the transfered archives. See Amazon S3 pricing: https://aws.amazon.com/s3/pricing",
+            },
+            "AcknowledgeAdditionalCostForCrossRegionTransfer": {
+                "type": "String",
+                "default": "NO",
+                "allowedValues": ["NO", "YES"],
+                "description": "(Required) Select 'YES' only if you are aware of the excessive additional cost when selecting a destination bucket in a different region than the S3 Glacier vault. See Amazon S3 Glacier data transfer pricing: https://aws.amazon.com/s3/glacier/pricing/#Data_transfer_pricing",
             },
         }
 
@@ -98,29 +111,61 @@ class BaseAutomationDocument(ExecuteScriptAutomationDocument):
 
 
 class LaunchAutomationDocument(BaseAutomationDocument):
-    document_description = "Document that launches an orchestrator workflow to copy a Glacier Vault to an S3 Bucket"
+    document_description = (
+        "# Document that launches an orchestrator workflow to copy a Glacier vault to an S3 bucket.\n"
+        "## (Optional) Download the vault inventory file\n"
+        "If you want to download the vault inventory file as part of this migration, follow these [steps](https://docs.aws.amazon.com/solutions/latest/data-transfer-from-amazon-s3-glacier-vaults-to-amazon-s3/step-2-launch-the-transfer-workflow.html#optional-download-the-vault-inventory-file)\n"
+        "### Input Parameters:\n"
+        " * **AcknowledgeAdditionalCostForCrossRegionTransfer**: (Required) Select 'YES' only if you are aware of the excessive additional cost when selecting a destination bucket in a different region than the S3 Glacier vault. See [Amazon S3 Glacier data transfer pricing](https://aws.amazon.com/s3/glacier/pricing/#Data_transfer_pricing)\n"
+        " * **Description**: (Optional) Input can be used to provide an extended description of the document.\n"
+        " * **ProvidedInventory**: **No**\n"
+        " * **VaultName**: (Required) Input to specify the name of the vault that needs to be retrieved from Glacier and copied to S3.\n"
+        " * **NamingOverrideFile**: (Optional) Input can be used to provide a pre-signed URL for the naming override file.\n"
+        " * **S3StorageClass**: (Required) Input to specify the S3 storage class for the transfered archives. [Learn more](https://docs.aws.amazon.com/console/s3/storageclasses) or see [Amazon S3 pricing](https://aws.amazon.com/s3/pricing).\n"
+        " * **WorkflowRun**: (Optional) Input can be used to provide a workflow identifier. If this field remains empty, the solution assigns a value.\n"
+        "  \n"
+        "## (Optional) Provide the vault inventory file\n"
+        "If you want to provide the vault inventory file, follow these [steps](https://docs.aws.amazon.com/solutions/latest/data-transfer-from-amazon-s3-glacier-vaults-to-amazon-s3/step-2-launch-the-transfer-workflow.html)\n"
+        "### Input Parameters:\n"
+        " * **AcknowledgeAdditionalCostForCrossRegionTransfer**: (Required) Select 'YES' only if you are aware of the excessive additional cost when selecting a destination bucket in a different region than the S3 Glacier vault. See [Amazon S3 Glacier data transfer pricing](https://aws.amazon.com/s3/glacier/pricing/#Data_transfer_pricing)\n"
+        " * **Description**: (Optional) Input can be used to provide an extended description of the document.\n"
+        " * **ProvidedInventory**: **Yes**\n"
+        " * **VaultName**: (Required) Input to specify the name of the vault that needs to be retrieved from Glacier and copied to S3.\n"
+        " * **NamingOverrideFile**: (Optional) Input can be used to provide a pre-signed URL for the naming override file.\n"
+        " * **S3StorageClass**: (Required) Input to specify the S3 storage class for the transfered archives. [Learn more](https://docs.aws.amazon.com/console/s3/storageclasses) or see [Amazon S3 pricing](https://aws.amazon.com/s3/pricing).\n"
+        " * **WorkflowRun**: (Required) Input to specify the name of your workflow run.\n"
+    )
 
     def __init__(
         self,
         ssm_role: str,
         topic_arn: str,
         state_machine_arn: str,
+        region: str,
+        bucket_name: str,
+        allow_cross_region_data_transfer: bool,
     ) -> None:
         super().__init__(
-            ssm_role, topic_arn, state_machine_arn, self.document_description
+            ssm_role,
+            topic_arn,
+            state_machine_arn,
+            self.document_description,
+            region,
+            bucket_name,
+            allow_cross_region_data_transfer,
         )
         self.parameters.update(
             {
                 "VaultName": {
                     "type": "String",
-                    "description": "(Required) Input to specify the name of the vault that needs to be retrieved from Glacier and copied to S3",
-                    "allowedPattern": "^[a-zA-Z0-9_.-]{1,255}$",
+                    "description": "(Required) Input to specify the name of the vault that needs to be retrieved from Glacier and copied to S3.",
+                    "allowedPattern": r"^[a-zA-Z0-9_.-]{1,255}$",
                 },
                 "WorkflowRun": {
                     "type": "String",
                     "default": "",
-                    "description": "(Optional) Input can be used to provide a workflow identifier. If 'ProvidedInventory' is set to 'YES,' this field becomes Required.",
-                    "allowedPattern": "^(?!\s).*",
+                    "description": "(Optional) Input can be used to provide a workflow identifier. If 'ProvidedInventory' is set to 'YES', this field becomes Required.",
+                    "allowedPattern": r"^(?!\s).*",
                 },
             }
         )
@@ -133,7 +178,17 @@ class LaunchAutomationDocument(BaseAutomationDocument):
 
 
 class ResumeAutomationDocument(BaseAutomationDocument):
-    document_description = "Document that resumes an orchestrator workflow to copy a Glacier Vault to an S3 Bucket"
+    document_description = (
+        "# Document that resumes an orchestrator workflow to copy a Glacier vault to an S3 bucket.\n"
+        "To resume the transfer workflow, follow these [steps](https://docs.aws.amazon.com/solutions/latest/data-transfer-from-amazon-s3-glacier-vaults-to-amazon-s3/step-3-resume-the-transfer-workflow.html)\n"
+        "### Input Parameters:\n"
+        " * **AcknowledgeAdditionalCostForCrossRegionTransfer**: (Required) Select 'YES' only if you are aware of the excessive additional cost when selecting a destination bucket in a different region than the S3 Glacier vault. See [Amazon S3 Glacier data transfer pricing](https://aws.amazon.com/s3/glacier/pricing/#Data_transfer_pricing)\n"
+        " * **Description**: (Optional) Input can be used to provide an extended description of the document.\n"
+        " * **ProvidedInventory**: (Required) Input with two options [YES, NO] to indicate if the inventory is provided.\n"
+        " * **WorkflowRun**: (Required) Input to specify the workflow identifier of the workflow that needs to be resumed.\n"
+        " * **NamingOverrideFile**: (Optional) Input can be used to provide a pre-signed URL for the naming override file.\n"
+        " * **S3StorageClass**: (Required) Input to specify the S3 storage class for the transfered archives. [Learn more](https://docs.aws.amazon.com/console/s3/storageclasses) or see [Amazon S3 pricing](https://aws.amazon.com/s3/pricing).\n"
+    )
 
     def __init__(
         self,
@@ -141,16 +196,25 @@ class ResumeAutomationDocument(BaseAutomationDocument):
         topic_arn: str,
         state_machine_arn: str,
         table_name: str,
+        region: str,
+        bucket_name: str,
+        allow_cross_region_data_transfer: bool,
     ) -> None:
         super().__init__(
-            ssm_role, topic_arn, state_machine_arn, self.document_description
+            ssm_role,
+            topic_arn,
+            state_machine_arn,
+            self.document_description,
+            region,
+            bucket_name,
+            allow_cross_region_data_transfer,
         )
         self.parameters.update(
             {
                 "WorkflowRun": {
                     "type": "String",
                     "description": "(Required) Input to specify the workflow identifier of the workflow that needs to be resumed.",
-                    "allowedPattern": "[\S]+",
+                    "allowedPattern": r"[\S]+",
                 },
             }
         )

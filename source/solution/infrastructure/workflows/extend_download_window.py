@@ -11,9 +11,12 @@ from aws_cdk import aws_stepfunctions as sfn
 from aws_cdk import aws_stepfunctions_tasks as tasks
 from cdk_nag import NagSuppressions
 
-from solution.application.model.glacier_transfer_model import GlacierTransferModel
 from solution.application.util.exceptions import ResourceNotFound
-from solution.infrastructure.helpers.distributed_map import DistributedMap
+from solution.infrastructure.helpers.distributed_map import (
+    DistributedMap,
+    ItemReaderConfig,
+    ResultConfig,
+)
 from solution.infrastructure.helpers.solutions_function import SolutionsPythonFunction
 from solution.infrastructure.helpers.solutions_state_machine import (
     SolutionsStateMachine,
@@ -39,6 +42,12 @@ class Workflow:
             stack_info.scope,
             "ExtendDownloadWindowTrigger",
             schedule=eventbridge.Schedule.expression("cron(0/30 * * * ? *)"),
+        )
+
+        stack_info.outputs[OutputKeys.EXTEND_DOWNLOAD_WINDOW_RULE_NAME] = CfnOutput(
+            stack_info.scope,
+            OutputKeys.EXTEND_DOWNLOAD_WINDOW_RULE_NAME,
+            value=stack_info.eventbridge_rules.extend_download_window_trigger.rule_name,
         )
 
         glacier_retrieval_index_name = "staged_archives_index"
@@ -155,29 +164,37 @@ class Workflow:
         )
         stack_info.default_retry.apply_to_steps([extend_download_window_initiate_job])
 
-        extend_download_window_distributed_map_state = DistributedMap(
-            stack_info.scope,
-            "ExtendDownloadWindowDistributedMap",
-            definition=extend_download_window_initiate_job,
+        item_reader_config = ItemReaderConfig(
             item_reader_resource="arn:aws:states:::s3:getObject",
+            reader_config={"InputType": "JSON"},
             item_reader_parameters={
                 "Bucket": stack_info.buckets.inventory_bucket.bucket_name,
                 "Key.$": "$.archives_needing_window_extension.s3_key",
             },
-            reader_config={"InputType": "JSON"},
-            item_selector={
-                "item.$": "$$.Map.Item.Value",
-                "tier.$": "$.tier",
-                "vault_name.$": "$.vault_name",
-                "workflow_run.$": "$.workflow_run",
-            },
-            result_path="$.extend_download_window_map_result",
+        )
+
+        result_config = ResultConfig(
             result_writer={
                 "Resource": "arn:aws:states:::s3:putObject",
                 "Parameters": {
                     "Bucket": stack_info.buckets.inventory_bucket.bucket_name,
                     "Prefix.$": f"States.Format('{{}}/ExtendDownloadWindowDistributedMapOutput', $.workflow_run)",
                 },
+            },
+            result_path="$.extend_download_window_map_result",
+        )
+
+        extend_download_window_distributed_map_state = DistributedMap(
+            stack_info.scope,
+            "ExtendDownloadWindowDistributedMap",
+            definition=extend_download_window_initiate_job,
+            item_reader_config=item_reader_config,
+            result_config=result_config,
+            item_selector={
+                "item.$": "$$.Map.Item.Value",
+                "tier.$": "$.tier",
+                "vault_name.$": "$.vault_name",
+                "workflow_run.$": "$.workflow_run",
             },
             max_items_per_batch=100,
         )

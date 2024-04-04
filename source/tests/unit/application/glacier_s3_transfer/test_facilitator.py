@@ -7,13 +7,16 @@ import os
 from base64 import b64encode
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Iterator, Tuple
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import boto3
 import pytest
+from botocore.config import Config
 from mypy_boto3_dynamodb import DynamoDBClient
+from mypy_boto3_glacier import GlacierClient
 from mypy_boto3_sqs import SQSClient
 
+from solution.application import __boto_config__
 from solution.application.glacier_s3_transfer.facilitator import GlacierToS3Facilitator
 from solution.application.glacier_service.glacier_typing import GlacierJobType
 from solution.application.model import responses
@@ -222,6 +225,30 @@ def test_send_validation_event_last_chunk_true(
     assert message_body == (
         response["Messages"][0]["Body"] if "Messages" in response else None
     )
+
+
+@patch.object(GlacierToS3Facilitator, "_is_last_chunk")
+@patch.object(GlacierToS3Facilitator, "_get_metadata")
+def test_user_agent_on_sqs_client(
+    _mock_is_last_chunk: Mock,
+    _mock_get_metadata: Mock,
+    glacier_client: GlacierClient,
+    solution_user_agent: str,
+) -> None:
+    with patch("boto3.client") as mock_client:
+        facilitator = _create_facilitator()
+        facilitator.send_validation_event()
+
+        assert mock_client.call_args[0][0] == "sqs"
+
+        _config = mock_client.call_args[1]["config"]
+        assert type(_config) is Config
+
+        _config_user_agent_extra = _config.__getattribute__("user_agent_extra")
+        assert _config_user_agent_extra == __boto_config__.__getattribute__(
+            "user_agent_extra"
+        )
+        assert _config_user_agent_extra == solution_user_agent
 
 
 def _populate_glacier_retrieval_table(

@@ -1,14 +1,14 @@
-# Data Transfer from Amazon S3 Glacier vaults to Amazon S3
+# Data transfer from Amazon S3 Glacier vaults to Amazon S3
 
-The Data Transfer from Amazon S3 Glacier vaults to Amazon S3 is a serverless solution that automatically copies entire Amazon S3 Glacier vault archives to a defined destination Amazon Simple Storage Service (Amazon S3 bucket) and S3 storage class.
+Data transfer from Amazon S3 Glacier vaults to Amazon S3 is a serverless solution that automatically copies entire Amazon S3 Glacier vault archives to a defined destination Amazon Simple Storage Service (Amazon S3 bucket) and S3 storage class.
 
 The solution automates the optimized restore, copy, and transfer process and provides a prebuilt Amazon CloudWatch dashboard to visualize the copy operation progress. Deploying this solution allows you to seamlessly copy your S3 Glacier vault archives to more cost effective storage locations such as the Amazon S3 Glacier Deep Archive storage class.
 
 Copying your Amazon S3 Glacier vault contents to the S3 Glacier Deep Archive storage class combines the low cost and high durability benefits of S3 Glacier Deep Archive, with the familiar Amazon S3 user and application experience that offers simple visibility and access to data. Once your archives are stored as objects in your Amazon S3 bucket, you can add tags to your data to enable items such as attributing data costs on a granular level.
 
-_Note: The solution only copies archives from a source S3 Glacier vault to
-the destination S3 bucket, it does not delete archives in the source S3 Glacier vault. After the solution completes a successful archive copy to the destination S3 bucket, you must manually delete the archives from your S3 Glacier vault.For more information,
-refer to [Deleting an Archive in Amazon S3 Glacier](https://docs.aws.amazon.com/amazonglacier/latest/dev/deleting-an-archive.html) in the Amazon S3 Glacier Developer Guide._
+ _Note: The solution only copies archives from a source S3 Glacier vault to
+ the destination S3 bucket, it does not delete archives in the source S3 Glacier vault. After the solution completes a successful archive copy to the destination S3 bucket, you must manually delete the archives from your S3 Glacier vault.For more information,
+ refer to [Deleting an Archive in Amazon S3 Glacier](https://docs.aws.amazon.com/amazonglacier/latest/dev/deleting-an-archive.html) in the Amazon S3 Glacier Developer Guide._
 
 ## Table of contents
 
@@ -23,7 +23,7 @@ refer to [Deleting an Archive in Amazon S3 Glacier](https://docs.aws.amazon.com/
 
 ## Architecture
 
-![Data Transfer from Glacier vaults to S3](./architecture.png)
+![Data transfer from Glacier vaults to S3](./architecture.png)
 
 1. Customers invoke a transfer workflow by using an AWS Systems Manager
    document (SSM document).
@@ -89,7 +89,11 @@ pip install ".[dev]"
 
 #### 4. Deploy the solution using CDK
 
-Make sure AWS CLI is operational ([see here](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html))
+Make sure AWS CLI is operational ([see here](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-configure.html)).
+
+Before deploying the stack, it is necessary to create a destination S3 bucket where the archives will be transferred. 
+The name of this bucket should be specified via a CloudFormation parameter *DestinationBucketParameter*.
+
 
 ```
 aws s3 ls
@@ -104,23 +108,23 @@ npx cdk bootstrap
 Deploy the solution
 
 ```
-npx cdk deploy solution -c skip_integration_tests=true
+npx cdk deploy solution --parameters DestinationBucketParameter=my-output-bucket-name
 ```
 
-_note: set context parameter `skip_integration_tests=false` to indicate if you want to run integration tests against the solution stack_
+_note: set context parameter `skip_integration_tests` to `false` to indicate if you want to run integration tests against the solution stack: `npx cdk deploy solution -c skip_integration_tests=false --parameters DestinationBucketParameter=my-output-bucket-name`._
 
 #### 5. Running integration tests
 
 ```
 npx cdk deploy mock-glacier
 export MOCK_SNS_STACK_NAME=mock-glacier # use mock-glacier stack name
-export $STACK_NAME=solution # use solution stack name
+export STACK_NAME=solution # use solution stack name
 tox -e integration
 ```
 
 ## Automated testing pipeline
 
-The Data Transfer from S3 Glacier vaults to S3 includes an optional automated testing pipeline that can be deployed to automatically test any
+The Data transfer from S3 Glacier vaults to S3 includes an optional automated testing pipeline that can be deployed to automatically test any
 changes you develop for the solution on your own development fork. Once setup, this pipeline will automatically
 download, build, and test any changes that you push to a specified branch on your development fork.
 
@@ -131,7 +135,7 @@ The pipeline can be configured to automatically watch and pull from repos hosted
 - Create the pipeline
 
 ```
-npx cdk deploy pipeline -c repository_name=my-repo -c branch=dev
+npx cdk deploy pipeline -c repository_name=my-repo -c branch=dev -c skip_integration_tests=false -c output_bucket_name=my-output-bucket-name
 ```
 
 The pipeline will be triggered any time you make a push to the codecommit repository on the identified branch.
@@ -154,7 +158,7 @@ _note: due to a known issue where resource name gets truncated, we recommend bra
 
 ## CDK Documentation
 
-Data Transfer from Amazon S3 Glacier vaults to Amazon S3 templates are
+Data transfer from Amazon S3 Glacier vaults to Amazon S3 templates are
 generated using AWS CDK, for further information on CDK please refer to the
 [documentation](https://docs.aws.amazon.com/cdk/latest/guide/getting_started.html).
 

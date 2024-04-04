@@ -16,23 +16,21 @@ else:
     S3Client = object
 
 
-def assert_bucket_put_get_object(bucket_name: str) -> None:
-    client: S3Client = boto3.client("s3")
-
+def assert_bucket_put_get_object(bucket_name: str, s3_client: S3Client) -> None:
     value = "test data".encode("utf-8")
     key = "test_object.txt"
-    client.put_object(Bucket=bucket_name, Key=key, Body=value)
+    s3_client.put_object(Bucket=bucket_name, Key=key, Body=value)
 
-    assert value == client.get_object(Bucket=bucket_name, Key=key)["Body"].read()
+    assert value == s3_client.get_object(Bucket=bucket_name, Key=key)["Body"].read()
 
-    client.delete_object(Bucket=bucket_name, Key=key)
+    s3_client.delete_object(Bucket=bucket_name, Key=key)
 
 
-def test_output_bucket_put_get_object() -> None:
+def test_output_bucket_put_get_object(s3_client: S3Client) -> None:
     bucket_name = os.environ[OutputKeys.OUTPUT_BUCKET_NAME]
-    assert_bucket_put_get_object(bucket_name)
+    assert_bucket_put_get_object(bucket_name, s3_client)
 
 
-def test_inventory_bucket_put_get_object() -> None:
+def test_inventory_bucket_put_get_object(s3_client: S3Client) -> None:
     bucket_name = os.environ[OutputKeys.INVENTORY_BUCKET_NAME]
-    assert_bucket_put_get_object(bucket_name)
+    assert_bucket_put_get_object(bucket_name, s3_client)

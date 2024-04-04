@@ -21,11 +21,15 @@ SOLUTION_NAME = "Data-Retrieval-for-Glacier-S3"
 
 
 class SystemManager:
-    def __init__(self, stack_info: StackInfo) -> None:
+    def __init__(
+        self, stack_info: StackInfo, allow_cross_region_data_transfer: bool
+    ) -> None:
         if stack_info.state_machines.orchestrator_state_machine is None:
             raise ResourceNotFound("Orchestrator State Machine")
         if stack_info.tables.glacier_retrieval_table is None:
             raise ResourceNotFound("Glacier Retrieval Table")
+        if stack_info.interfaces.output_bucket is None:
+            raise ResourceNotFound("Output Bucket")
 
         ssm_role = iam.Role(
             stack_info.scope,
@@ -36,6 +40,7 @@ class SystemManager:
             ssm_role
         )
         stack_info.tables.glacier_retrieval_table.grant_read_data(ssm_role)
+        stack_info.interfaces.output_bucket.grant_read(ssm_role)
 
         launch_automation_document = ssm.CfnDocument(
             stack_info.scope,
@@ -44,6 +49,9 @@ class SystemManager:
                 ssm_role.role_arn,
                 stack_info.async_facilitator_topic.topic_arn,
                 stack_info.state_machines.orchestrator_state_machine.state_machine_arn,
+                Aws.REGION,
+                stack_info.interfaces.output_bucket.bucket_name,
+                allow_cross_region_data_transfer,
             ).yaml_document,
             document_format="YAML",
             document_type="Automation",
@@ -68,6 +76,9 @@ class SystemManager:
                 stack_info.async_facilitator_topic.topic_arn,
                 stack_info.state_machines.orchestrator_state_machine.state_machine_arn,
                 stack_info.tables.glacier_retrieval_table.table_name,
+                Aws.REGION,
+                stack_info.interfaces.output_bucket.bucket_name,
+                allow_cross_region_data_transfer,
             ).yaml_document,
             document_format="YAML",
             document_type="Automation",
@@ -98,6 +109,16 @@ class SystemManager:
                     "reason": "It's necessary to have wildcard permissions for Glacier Object Retrieval table index to allow read/write",
                     "appliesTo": [
                         f"Resource::<{glacier_retrieval_table_logical_id}.Arn>/index/*",
+                    ],
+                },
+                {
+                    "id": "AwsSolutions-IAM5",
+                    "reason": "It's necessary to have wildcard permission to allow the automation document to get the destination bucket region",
+                    "appliesTo": [
+                        "Action::s3:GetBucket*",
+                        "Action::s3:GetObject*",
+                        "Action::s3:List*",
+                        "Resource::arn:<AWS::Partition>:s3:::<DestinationBucketParameter>/*",
                     ],
                 },
             ],
