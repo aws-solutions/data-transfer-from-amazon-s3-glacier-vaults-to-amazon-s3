@@ -14,7 +14,7 @@ from constructs import Construct
 
 from solution.application.util.exceptions import ResourceNotFound
 
-DEFAULT_RUNTIME = Runtime.PYTHON_3_11
+DEFAULT_RUNTIME = Runtime.PYTHON_3_12
 
 
 class SolutionsPythonFunction(Function):
@@ -32,7 +32,7 @@ class SolutionsPythonFunction(Function):
         if not kwargs.get("role"):
             kwargs["role"] = self._create_role()
 
-        # set runtime to Python 3.11 unless a runtime is passed
+        # set runtime to Python 3.12 unless a runtime is passed
         if not kwargs.get("runtime"):
             kwargs["runtime"] = DEFAULT_RUNTIME
 

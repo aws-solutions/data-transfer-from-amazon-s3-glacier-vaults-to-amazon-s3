@@ -134,6 +134,9 @@ def extend_request(
         glacier_client, vault_name, sns_topic, archive_id, tier, account_id
     )
 
+    if not job_id:
+        return
+
     ddb_client.update_item(
         TableName=os.environ[OutputKeys.GLACIER_RETRIEVAL_TABLE_NAME],
         Key=GlacierTransferMetadataRead(
@@ -154,7 +157,7 @@ def glacier_initiate_job(
     archive_id: str,
     tier: str,
     account_id: str,
-) -> str:
+) -> str | None:
     job_parameters: JobParametersTypeDef = {
         "Type": GlacierJobType.ARCHIVE_RETRIEVAL,
         "SNSTopic": sns_topic,
@@ -168,7 +171,10 @@ def glacier_initiate_job(
             jobParameters=job_parameters,
         )
     except Exception as e:
-        logger.error(f"An error occurred while initiating job: {e}")
+        logger.error(
+            f"An error occurred while initiating job for {job_parameters}. Error: {e}"
+        )
+        return None
 
     return initiate_job_response["jobId"]
 
@@ -196,6 +202,9 @@ def initiate_request(
     job_id = glacier_initiate_job(
         glacier_client, vault_name, sns_topic, archive_id, tier, account_id
     )
+
+    if not job_id:
+        return
 
     archive_metadata = GlacierTransferMetadata(
         workflow_run=workflow_run,

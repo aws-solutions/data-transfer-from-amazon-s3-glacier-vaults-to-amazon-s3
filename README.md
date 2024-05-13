@@ -7,7 +7,7 @@ The solution automates the optimized restore, copy, and transfer process and pro
 Copying your Amazon S3 Glacier vault contents to the S3 Glacier Deep Archive storage class combines the low cost and high durability benefits of S3 Glacier Deep Archive, with the familiar Amazon S3 user and application experience that offers simple visibility and access to data. Once your archives are stored as objects in your Amazon S3 bucket, you can add tags to your data to enable items such as attributing data costs on a granular level.
 
  _Note: The solution only copies archives from a source S3 Glacier vault to
- the destination S3 bucket, it does not delete archives in the source S3 Glacier vault. After the solution completes a successful archive copy to the destination S3 bucket, you must manually delete the archives from your S3 Glacier vault.For more information,
+ the destination S3 bucket, it does not delete archives in the source S3 Glacier vault. After the solution completes a successful archive copy to the destination S3 bucket, you must manually delete the archives from your S3 Glacier vault. For more information,
  refer to [Deleting an Archive in Amazon S3 Glacier](https://docs.aws.amazon.com/amazonglacier/latest/dev/deleting-an-archive.html) in the Amazon S3 Glacier Developer Guide._
 
 ## Table of contents
@@ -45,6 +45,8 @@ Copying your Amazon S3 Glacier vault contents to the S3 Glacier Deep Archive sto
 17. The DynamoDB stream invokes the Lambda Async Facilitator function, which unlocks asynchronous waits in Step Functions.
 18. The Amazon EventBridge rules periodically initiate Step Functions Extend Download Window and Update CloudWatch Dashboard workflows.
 19. Customers monitor the transfer progress by using the Amazon CloudWatch dashboard.
+
+Refer to the [solution developer guide](./docs/DEVELOPER_GUIDE.md) for more details about the internal components, workflows, and resource dependencies involved in transferring a Glacier Vault to S3.
 
 ## Deploying the solution
 

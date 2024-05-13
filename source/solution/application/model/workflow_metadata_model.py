@@ -23,7 +23,10 @@ class WorkflowMetadataRecord(Model):
     )
     storage_class: str = Model.field(["storage_class", "S"])
     retrieval_tier: str = Model.field(["retrieval_tier", "S"])
-
+    provided_inventory: str = Model.field(["provided_inventory", "S"])
+    transfer_type: str = Model.field(["transfer_type", "S"])
+    naming_override_file: str = Model.field(["naming_override_file", "S"])
+    cross_region_transfer: str = Model.field(["cross_region_transfer", "S"])
     sk: ClassVar[str] = "meta"
 
     _pk: str = Model.view(["pk", "S"], "workflow_run")

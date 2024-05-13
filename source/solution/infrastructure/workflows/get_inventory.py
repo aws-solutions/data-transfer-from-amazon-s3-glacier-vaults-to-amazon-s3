@@ -112,7 +112,7 @@ class Workflow:
                         "glacier:InitiateJob",
                     ],
                     resources=[
-                        f"arn:aws:glacier:{Aws.REGION}:{Aws.ACCOUNT_ID}:vaults/*"
+                        f"arn:{Aws.PARTITION}:glacier:{Aws.REGION}:{Aws.ACCOUNT_ID}:vaults/*"
                     ],
                 ),
             ],
@@ -172,7 +172,7 @@ class Workflow:
                         "logs:CreateLogStream",
                         "logs:PutLogEvents",
                     ],
-                    resources=["arn:aws:logs:*:*:*:/aws-glue/*"],
+                    resources=[f"arn:{Aws.PARTITION}:logs:*:*:*:/aws-glue/*"],
                 ),
             ],
         )
@@ -211,7 +211,7 @@ class Workflow:
                     effect=iam.Effect.ALLOW,
                     actions=["glue:UpdateJob", "glue:StartJobRun"],
                     resources=[
-                        f"arn:aws:glue:{Aws.REGION}:{Aws.ACCOUNT_ID}:job/{glue_job.job_name}"
+                        f"arn:{Aws.PARTITION}:glue:{Aws.REGION}:{Aws.ACCOUNT_ID}:job/{glue_job.job_name}"
                     ],
                 ),
             ],
@@ -234,7 +234,7 @@ class Workflow:
                 },
             },
             "ResultPath": "$.async_ddb_put_result",
-            "Resource": "arn:aws:states:::aws-sdk:dynamodb:putItem.waitForTaskToken",
+            "Resource": f"arn:{Aws.PARTITION}:states:::aws-sdk:dynamodb:putItem.waitForTaskToken",
             "TimeoutSeconds": 6 * 60 * 60,  # 6 Hours
             "Retry": stack_info.default_retry.custom_state_params(),
         }
@@ -366,7 +366,7 @@ class Workflow:
                     effect=iam.Effect.ALLOW,
                     actions=["glacier:GetJobOutput"],
                     resources=[
-                        f"arn:aws:glacier:{Aws.REGION}:{Aws.ACCOUNT_ID}:vaults/*",
+                        f"arn:{Aws.PARTITION}:glacier:{Aws.REGION}:{Aws.ACCOUNT_ID}:vaults/*",
                     ],
                 ),
             ],
@@ -528,7 +528,7 @@ class Workflow:
                 "ACCOUNT_ID": Aws.ACCOUNT_ID,
                 "REGION": Aws.REGION,
                 "VERSION": stack_info.scope.node.try_get_context("SOLUTION_VERSION")
-                or "v1.1.0",
+                or "v1.1.1",
                 "SOLUTION_ID": stack_info.scope.node.try_get_context("SOLUTION_ID")
                 or "SO0293",
                 "SEND_ANONYMIZED_STATISTICS": "Yes",
@@ -697,7 +697,7 @@ class Workflow:
                     effect=iam.Effect.ALLOW,
                     actions=["states:DescribeExecution", "states:StopExecution"],
                     resources=[
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:{stack_info.state_machines.inventory_retrieval_state_machine.state_machine_name}/*"
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:{stack_info.state_machines.inventory_retrieval_state_machine.state_machine_name}/*"
                     ],
                 ),
             ],
@@ -738,7 +738,7 @@ class Workflow:
                     "id": "AwsSolutions-IAM5",
                     "reason": "It's necessary to have wildcard permissions for inventory retrieval initiate job, since the vault name is an input that is not known in advance",
                     "appliesTo": [
-                        "Resource::arn:aws:glacier:<AWS::Region>:<AWS::AccountId>:vaults/*"
+                        "Resource::arn:<AWS::Partition>:glacier:<AWS::Region>:<AWS::AccountId>:vaults/*"
                     ],
                 },
             ],
@@ -800,7 +800,7 @@ class Workflow:
                     "id": "AwsSolutions-IAM5",
                     "reason": "It's necessary to have wildcard permissions for inventory retrieval initiate job, since the vault name is an input that is not known in advance",
                     "appliesTo": [
-                        "Resource::arn:aws:glacier:<AWS::Region>:<AWS::AccountId>:vaults/*",
+                        "Resource::arn:<AWS::Partition>:glacier:<AWS::Region>:<AWS::AccountId>:vaults/*",
                     ],
                 }
             ],
@@ -1001,7 +1001,7 @@ class Workflow:
                     "id": "AwsSolutions-IAM5",
                     "reason": "IAM policy needed to run a Distributed Map state. https://docs.aws.amazon.com/step-functions/latest/dg/iam-policies-eg-dist-map.html",
                     "appliesTo": [
-                        f"Resource::arn:aws:states:<AWS::Region>:<AWS::AccountId>:execution:<{inventory_retrieval_state_machine_logical_id}.Name>/*"
+                        f"Resource::arn:<AWS::Partition>:states:<AWS::Region>:<AWS::AccountId>:execution:<{inventory_retrieval_state_machine_logical_id}.Name>/*"
                     ],
                 }
             ],
@@ -1075,7 +1075,9 @@ class Workflow:
                 {
                     "id": "AwsSolutions-IAM5",
                     "reason": "IAM policy needed to allow Glue jobs to write logs to Amazon CloudWatch",
-                    "appliesTo": ["Resource::arn:aws:logs:*:*:*:/aws-glue/*"],
+                    "appliesTo": [
+                        "Resource::arn:<AWS::Partition>:logs:*:*:*:/aws-glue/*"
+                    ],
                 }
             ],
         )

@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2024-05-13
+
+### Updated
+
+- Upgrade Lambda functions runtime version to Python 3.12
+- Extended the list of supported regions
+
+### Fixed
+
+- Fix Glue job failures occurring when empty vault
+- Fix InitiateRetrieval workflow to skip incorrect inventory entries and avoid failing the entire process
+
 ## [1.1.0] - 2024-04-04
 
 ### Added
@@ -16,7 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - Implement retry within MetricsProcessor Lambda when encountering TransactionConflict exception
 - Use SHA-256 to generate TransactWriteItems ClientRequestToken as a more secure alternative to MD5 hashing
-- Add try-except block around the archive naming logic to prevent the entire Glue job from failing due to a single/few names parsing errors.
+- Add try-except block around the archive naming logic to prevent the entire Glue job from failing due to a single/few names parsing errors
 - Enhance SSM Automation documents descriptions
 - Add user-agents to all service clients to track usage on solution service API usage dashboard
 

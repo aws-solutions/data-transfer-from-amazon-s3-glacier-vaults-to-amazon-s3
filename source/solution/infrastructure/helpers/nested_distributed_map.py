@@ -33,7 +33,7 @@ class NestedDistributedMap:
         max_items_per_batch: Optional[int] = None,
     ) -> None:
         inner_item_reader_config = ItemReaderConfig(
-            item_reader_resource="arn:aws:states:::s3:getObject",
+            item_reader_resource=f"arn:aws:states:::s3:getObject",
             reader_config={
                 "InputType": "CSV",
                 "CSVHeaderLocation": "FIRST_ROW",
@@ -42,7 +42,7 @@ class NestedDistributedMap:
         )
         inner_result_config = ResultConfig(
             result_writer={
-                "Resource": "arn:aws:states:::s3:putObject",
+                "Resource": f"arn:aws:states:::s3:putObject",
                 "Parameters": {
                     "Bucket": inventory_bucket.bucket_name,
                     "Prefix.$": f"States.Format('{{}}/{nested_distributed_map_id}InnerDistributedMapOutput', $.workflow_run)",
@@ -68,7 +68,7 @@ class NestedDistributedMap:
         )
 
         item_reader_config = ItemReaderConfig(
-            item_reader_resource="arn:aws:states:::s3:listObjectsV2",
+            item_reader_resource=f"arn:aws:states:::s3:listObjectsV2",
             item_reader_parameters={
                 "Bucket": inventory_bucket.bucket_name,
                 "Prefix.$": "$.prefix",
@@ -76,7 +76,7 @@ class NestedDistributedMap:
         )
         result_config = ResultConfig(
             result_writer={
-                "Resource": "arn:aws:states:::s3:putObject",
+                "Resource": f"arn:aws:states:::s3:putObject",
                 "Parameters": {
                     "Bucket": inventory_bucket.bucket_name,
                     "Prefix.$": f"States.Format('{{}}/{nested_distributed_map_id}DistributedMapOutput', $.workflow_run)",
@@ -123,7 +123,7 @@ class NestedDistributedMap:
                     effect=iam.Effect.ALLOW,
                     actions=["states:DescribeExecution", "states:StopExecution"],
                     resources=[
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:{state_machine.state_machine_name}/*"
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:{state_machine.state_machine_name}/*"
                     ],
                 ),
             ],
@@ -173,7 +173,7 @@ class NestedDistributedMap:
                     "id": "AwsSolutions-IAM5",
                     "reason": "IAM policy needed to run a Distributed Map state. https://docs.aws.amazon.com/step-functions/latest/dg/iam-policies-eg-dist-map.html",
                     "appliesTo": [
-                        f"Resource::arn:aws:states:<AWS::Region>:<AWS::AccountId>:execution:<{state_machine_logical_id}.Name>/*"
+                        f"Resource::arn:<AWS::Partition>:states:<AWS::Region>:<AWS::AccountId>:execution:<{state_machine_logical_id}.Name>/*"
                     ],
                 }
             ],

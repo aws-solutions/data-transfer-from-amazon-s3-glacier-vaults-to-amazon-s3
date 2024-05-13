@@ -58,7 +58,7 @@ class Workflow:
 
         cleanup_workflow_state_json = {
             "Type": "Task",
-            "Resource": "arn:aws:states:::states:startExecution.sync:2",
+            "Resource": f"arn:{Aws.PARTITION}:states:::states:startExecution.sync:2",
             "Parameters": {
                 "Input.$": "$$.Execution.Input",
                 "StateMachineArn": stack_info.state_machines.cleanup_state_machine.state_machine_arn,
@@ -97,13 +97,25 @@ class Workflow:
                 "retrieval_tier": tasks.DynamoAttributeValue.from_string(
                     sfn.JsonPath.string_at("$.tier")
                 ),
+                "provided_inventory": tasks.DynamoAttributeValue.from_string(
+                    sfn.JsonPath.string_at("$.provided_inventory")
+                ),
+                "transfer_type": tasks.DynamoAttributeValue.from_string(
+                    sfn.JsonPath.string_at("$.migration_type")
+                ),
+                "naming_override_file": tasks.DynamoAttributeValue.from_string(
+                    sfn.JsonPath.string_at("$.name_override_presigned_url")
+                ),
+                "cross_region_transfer": tasks.DynamoAttributeValue.from_string(
+                    sfn.JsonPath.string_at("$.cross_region_transfer")
+                ),
             },
             result_path="$.put_workflow_input_into_ddb",
         )
 
         status_cleanup_workflow_state_json = {
             "Type": "Task",
-            "Resource": "arn:aws:states:::states:startExecution.sync:2",
+            "Resource": f"arn:{Aws.PARTITION}:states:::states:startExecution.sync:2",
             "Parameters": {
                 "Input.$": "$$.Execution.Input",
                 "StateMachineArn": stack_info.state_machines.cleanup_archives_status_state_machine.state_machine_arn,
@@ -121,7 +133,7 @@ class Workflow:
 
         inventory_retrieval_workflow_state_json = {
             "Type": "Task",
-            "Resource": "arn:aws:states:::states:startExecution.sync:2",
+            "Resource": f"arn:{Aws.PARTITION}:states:::states:startExecution.sync:2",
             "Parameters": {
                 "StateMachineArn": stack_info.state_machines.inventory_retrieval_state_machine.state_machine_arn,
                 "Input.$": "$$.Execution.Input",
@@ -139,7 +151,7 @@ class Workflow:
 
         initiate_retrieval_workflow_state_json = {
             "Type": "Task",
-            "Resource": "arn:aws:states:::states:startExecution.sync:2",
+            "Resource": f"arn:{Aws.PARTITION}:states:::states:startExecution.sync:2",
             "Parameters": {
                 "Input.$": "$$.Execution.Input",
                 "StateMachineArn": stack_info.state_machines.initiate_retrieval_state_machine.state_machine_arn,
@@ -172,7 +184,7 @@ class Workflow:
                 },
             },
             "ResultPath": "$.async_ddb_put_result",
-            "Resource": "arn:aws:states:::aws-sdk:dynamodb:putItem.waitForTaskToken",
+            "Resource": f"arn:{Aws.PARTITION}:states:::aws-sdk:dynamodb:putItem.waitForTaskToken",
             "TimeoutSeconds": 48 * 60 * 60,
             "Retry": [
                 {
@@ -227,7 +239,7 @@ class Workflow:
                     }
                 ],
             },
-            "Resource": "arn:aws:states:::aws-sdk:eventbridge:putTargets",
+            "Resource": f"arn:{Aws.PARTITION}:states:::aws-sdk:eventbridge:putTargets",
             "ResultPath": "$.put_target_result",
             "Catch": cleanup_catch.custom_state_params(),
         }
@@ -251,7 +263,7 @@ class Workflow:
                     }
                 ],
             },
-            "Resource": "arn:aws:states:::aws-sdk:eventbridge:putTargets",
+            "Resource": f"arn:{Aws.PARTITION}:states:::aws-sdk:eventbridge:putTargets",
             "ResultPath": "$.post_metrics_sfn_target_result",
             "Catch": cleanup_catch.custom_state_params(),
         }
@@ -274,7 +286,7 @@ class Workflow:
                     }
                 ],
             },
-            "Resource": "arn:aws:states:::aws-sdk:eventbridge:putTargets",
+            "Resource": f"arn:{Aws.PARTITION}:states:::aws-sdk:eventbridge:putTargets",
             "ResultPath": "$.put_completion_checker_target_result",
             "Catch": cleanup_catch.custom_state_params(),
         }
@@ -303,7 +315,7 @@ class Workflow:
                         "events:DescribeRule",
                     ],
                     resources=[
-                        f"arn:aws:events:{Aws.REGION}:{Aws.ACCOUNT_ID}:rule/StepFunctionsGetEventsForStepFunctionsExecutionRule",
+                        f"arn:{Aws.PARTITION}:events:{Aws.REGION}:{Aws.ACCOUNT_ID}:rule/StepFunctionsGetEventsForStepFunctionsExecutionRule",
                         stack_info.eventbridge_rules.extend_download_window_trigger.rule_arn,
                         stack_info.eventbridge_rules.cloudwatch_dashboard_update_trigger.rule_arn,
                         stack_info.eventbridge_rules.completion_checker_trigger.rule_arn,
@@ -375,7 +387,7 @@ class Workflow:
                     effect=iam.Effect.ALLOW,
                     actions=["states:DescribeExecution", "states:StopExecution"],
                     resources=[
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:{state_machine.state_machine_name}/*"
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:{state_machine.state_machine_name}/*"
                         for state_machine in state_machines_list
                     ],
                 ),
@@ -407,7 +419,7 @@ class Workflow:
                     "id": "AwsSolutions-IAM5",
                     "reason": "It's necessary to have wildcard permissions to make orchestrator workflow to StartExecution for the nested workflows",
                     "appliesTo": [
-                        f"Resource::arn:aws:states:<AWS::Region>:<AWS::AccountId>:execution:<{state_machine_logical_id}.Name>/*"
+                        f"Resource::arn:<AWS::Partition>:states:<AWS::Region>:<AWS::AccountId>:execution:<{state_machine_logical_id}.Name>/*"
                         for state_machine_logical_id in state_machines_logical_ids_list
                     ],
                 },

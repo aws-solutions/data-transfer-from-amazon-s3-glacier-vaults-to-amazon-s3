@@ -44,23 +44,24 @@ def test_script_handler_launch_automation() -> None:
             "tier": "Bulk",
             "workflow_run": "workflow_1630251600_123456",
             "migration_type": "LAUNCH",
+            "cross_region_transfer": "True",
+            "allow_cross_region_data_transfer": True,
+            "acknowledge_cross_region": "YES",
             "name_override_presigned_url": None,
             "vault_name": "test_vault",
-            "acknowledge_cross_region": "YES",
             "bucket_name": "test_bucket_name",
             "region": "us-east-1",
-            "allow_cross_region_data_transfer": True,
         }
 
         script_handler(events, None)  # type: ignore
 
-        events.pop("acknowledge_cross_region")
         events.pop("bucket_name")
         events.pop("region")
         events.pop("allow_cross_region_data_transfer")
+        events.pop("acknowledge_cross_region")
 
         events["s3_storage_class"] = "GLACIER_IR"
-
+        events["name_override_presigned_url"] = ""
         # assert that the start_execution method was called with the correct arguments
         mock_sf.start_execution.assert_called_once_with(
             stateMachineArn=events.pop("state_machine_arn"), input=json.dumps(events)
@@ -119,21 +120,24 @@ def test_script_handler_resume_automation(
             "tier": "Bulk",
             "workflow_run": "workflow_1630251600_123456",
             "migration_type": "RESUME",
+            "cross_region_transfer": "True",
+            "allow_cross_region_data_transfer": True,
+            "acknowledge_cross_region": "YES",
             "table_name": glacier_retrieval_table_mock[1],
             "name_override_presigned_url": None,
-            "acknowledge_cross_region": "YES",
             "bucket_name": "test_bucket_name",
             "region": "us-east-1",
-            "allow_cross_region_data_transfer": True,
         }
         script_handler(events, None)  # type: ignore
+
         events.pop("table_name")
-        events.pop("acknowledge_cross_region")
         events.pop("bucket_name")
         events.pop("region")
         events.pop("allow_cross_region_data_transfer")
+        events.pop("acknowledge_cross_region")
 
         events["s3_storage_class"] = "GLACIER_IR"
+        events["name_override_presigned_url"] = ""
         events["vault_name"] = "test_vault_name"
         # assert that the start_execution method was called with the correct arguments
         mock_sf.start_execution.assert_called_once_with(

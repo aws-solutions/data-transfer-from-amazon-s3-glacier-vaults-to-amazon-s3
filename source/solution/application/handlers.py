@@ -267,7 +267,7 @@ def archive_naming_overrides(
     # This is necessary for cases when the user does not provide a naming override file
     create_header_file(event["WorkflowRun"])
 
-    if event.get("NameOverridePresignedURL") is not None:
+    if event.get("NameOverridePresignedURL") not in (None, ""):
         upload_provided_file(event["WorkflowRun"], event["NameOverridePresignedURL"])
     else:
         logger.info("No name override file is provided.")

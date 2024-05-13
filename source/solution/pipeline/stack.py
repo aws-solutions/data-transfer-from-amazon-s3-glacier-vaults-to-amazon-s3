@@ -185,8 +185,8 @@ class PipelineStack(Stack):
                     effect=iam.Effect.ALLOW,
                     actions=["cloudformation:DescribeStacks"],
                     resources=[
-                        f"arn:aws:cloudformation:{Aws.REGION}:{Aws.ACCOUNT_ID}:stack/{iam_stack_name}*",
-                        f"arn:aws:cloudformation:{Aws.REGION}:{Aws.ACCOUNT_ID}:stack/{mock_sns_stack_name}*",
+                        f"arn:{Aws.PARTITION}:cloudformation:{Aws.REGION}:{Aws.ACCOUNT_ID}:stack/{iam_stack_name}*",
+                        f"arn:{Aws.PARTITION}:cloudformation:{Aws.REGION}:{Aws.ACCOUNT_ID}:stack/{mock_sns_stack_name}*",
                     ],
                 ),
                 iam.PolicyStatement(
@@ -201,7 +201,7 @@ class PipelineStack(Stack):
                         "dynamodb:UpdateItem",
                     ],
                     resources=[
-                        f"arn:aws:dynamodb:{Aws.REGION}:{Aws.ACCOUNT_ID}:table/{iam_stack_name}*"
+                        f"arn:{Aws.PARTITION}:dynamodb:{Aws.REGION}:{Aws.ACCOUNT_ID}:table/{iam_stack_name}*"
                     ],
                 ),
                 iam.PolicyStatement(
@@ -213,7 +213,7 @@ class PipelineStack(Stack):
                         "sns:RemovePermission",
                     ],
                     resources=[
-                        f"arn:aws:sns:{Aws.REGION}:{Aws.ACCOUNT_ID}:{iam_stack_name}*"
+                        f"arn:{Aws.PARTITION}:sns:{Aws.REGION}:{Aws.ACCOUNT_ID}:{iam_stack_name}*"
                     ],
                 ),
                 iam.PolicyStatement(
@@ -225,15 +225,15 @@ class PipelineStack(Stack):
                         "s3:List*",
                     ],
                     resources=[
-                        f"arn:aws:s3:::{self.output_bucket_name}*",
-                        "arn:aws:s3:::*-inventorybucket*",
+                        f"arn:{Aws.PARTITION}:s3:::{self.output_bucket_name}*",
+                        f"arn:{Aws.PARTITION}:s3:::*-inventorybucket*",
                     ],
                 ),
                 iam.PolicyStatement(
                     effect=iam.Effect.ALLOW,
                     actions=["events:ListTargetsByRule", "events:removeTargets"],
                     resources=[
-                        f"arn:aws:events:{Aws.REGION}:{Aws.ACCOUNT_ID}:rule/*",
+                        f"arn:{Aws.PARTITION}:events:{Aws.REGION}:{Aws.ACCOUNT_ID}:rule/*",
                     ],
                 ),
                 iam.PolicyStatement(
@@ -246,29 +246,26 @@ class PipelineStack(Stack):
                         "states:StopExecution",
                     ],
                     resources=[
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:stateMachine:InventoryRetrievalStateMachine*",
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:InventoryRetrievalStateMachine*",
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:stateMachine:InitiateRetrievalStateMachine*",
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:InitiateRetrievalStateMachine*",
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:stateMachine:InitiateMetadataStateMachine*",
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:InitiateMetadataStateMachine*",
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:mapRun:InitiateMetadataStateMachine*",
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:stateMachine:RetrieveArchiveStateMachine*",
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:RetrieveArchiveStateMachine*",
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:stateMachine:OrchestratorStateMachine*",
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:OrchestratorStateMachine*",
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:mapRun:RetrieveArchiveStateMachine*",
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:mapRun:InitiateRetrievalStateMachine*",
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:stateMachine:ExtendDownloadWindowStateMachine*",
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:ExtendDownloadWindowStateMachine*",
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:mapRun:ExtendDownloadWindowStateMachine*",
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:stateMachine:CloudWatchDashboardUpdateStateMachine*",
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:CloudWatchDashboardUpdateStateMachine*",
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:stateMachine:CleanupStateMachine*",
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:CleanupStateMachine*",
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:stateMachine:ArchivesStatusCleanupStateMachine*",
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:ArchivesStatusCleanupStateMachine*",
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:mapRun:ArchivesStatusCleanupStateMachine*",
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:stateMachine:InventoryRetrievalStateMachine*",
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:InventoryRetrievalStateMachine*",
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:stateMachine:InitiateRetrievalStateMachine*",
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:InitiateRetrievalStateMachine*",
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:stateMachine:RetrieveArchiveStateMachine*",
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:RetrieveArchiveStateMachine*",
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:stateMachine:OrchestratorStateMachine*",
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:OrchestratorStateMachine*",
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:mapRun:RetrieveArchiveStateMachine*",
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:mapRun:InitiateRetrievalStateMachine*",
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:stateMachine:ExtendDownloadWindowStateMachine*",
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:ExtendDownloadWindowStateMachine*",
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:mapRun:ExtendDownloadWindowStateMachine*",
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:stateMachine:CloudWatchDashboardUpdateStateMachine*",
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:CloudWatchDashboardUpdateStateMachine*",
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:stateMachine:CleanupStateMachine*",
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:CleanupStateMachine*",
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:stateMachine:ArchivesStatusCleanupStateMachine*",
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:ArchivesStatusCleanupStateMachine*",
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:mapRun:ArchivesStatusCleanupStateMachine*",
                     ],
                 ),
                 iam.PolicyStatement(
@@ -280,7 +277,7 @@ class PipelineStack(Stack):
                         "lambda:GetFunctionConfiguration",
                     ],
                     resources=[
-                        f"arn:aws:lambda:{Aws.REGION}:{Aws.ACCOUNT_ID}:function:*"
+                        f"arn:{Aws.PARTITION}:lambda:{Aws.REGION}:{Aws.ACCOUNT_ID}:function:*"
                     ],
                 ),
                 iam.PolicyStatement(
@@ -290,8 +287,8 @@ class PipelineStack(Stack):
                         "iam:DeleteRolePolicy",
                     ],
                     resources=[
-                        f"arn:aws:iam::{Aws.ACCOUNT_ID}:role/{mock_sns_stack_name}*",
-                        f"arn:aws:iam::{Aws.ACCOUNT_ID}:role/{iam_stack_name}*",
+                        f"arn:{Aws.PARTITION}:iam::{Aws.ACCOUNT_ID}:role/{mock_sns_stack_name}*",
+                        f"arn:{Aws.PARTITION}:iam::{Aws.ACCOUNT_ID}:role/{iam_stack_name}*",
                     ],
                 ),
                 iam.PolicyStatement(
@@ -300,7 +297,7 @@ class PipelineStack(Stack):
                         "ssm:StartAutomationExecution",
                     ],
                     resources=[
-                        f"arn:aws:ssm:{Aws.REGION}:{Aws.ACCOUNT_ID}:automation-definition/*"
+                        f"arn:{Aws.PARTITION}:ssm:{Aws.REGION}:{Aws.ACCOUNT_ID}:automation-definition/*"
                     ],
                 ),
                 iam.PolicyStatement(
@@ -309,7 +306,7 @@ class PipelineStack(Stack):
                         "ssm:GetAutomationExecution",
                     ],
                     resources=[
-                        f"arn:aws:ssm:{Aws.REGION}:{Aws.ACCOUNT_ID}:automation-execution/*"
+                        f"arn:{Aws.PARTITION}:ssm:{Aws.REGION}:{Aws.ACCOUNT_ID}:automation-execution/*"
                     ],
                 ),
                 iam.PolicyStatement(
@@ -322,7 +319,7 @@ class PipelineStack(Stack):
                         "logs:GetQueryResults",
                     ],
                     resources=[
-                        f"arn:aws:logs:{Aws.REGION}:{Aws.ACCOUNT_ID}:log-group:*",
+                        f"arn:{Aws.PARTITION}:logs:{Aws.REGION}:{Aws.ACCOUNT_ID}:log-group:*",
                     ],
                 ),
             ],

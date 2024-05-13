@@ -4,16 +4,18 @@ SPDX-License-Identifier: Apache-2.0
 """
 import os
 from typing import TYPE_CHECKING, Any, Callable, Iterator, List, Tuple
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from botocore.config import Config
+from botocore.exceptions import ClientError
 from mypy_boto3_dynamodb import DynamoDBClient
 from mypy_boto3_glacier.client import GlacierClient
 
 from solution.application import __boto_config__
 from solution.application.archive_retrieval.initiator import (
     extend_retrieval,
+    glacier_initiate_job,
     initiate_request,
     initiate_retrieval,
 )
@@ -185,6 +187,36 @@ def test_initiate_request_already_downloaded(
 
     with pytest.raises(Exception):
         glacier_client.describe_job(vaultName=VAULT_NAME, jobId=job_id)
+
+
+def test_glacier_initiate_job(glacier_client: GlacierClient) -> None:
+    glacier_client.create_vault(vaultName=VAULT_NAME)
+    job_id = glacier_initiate_job(
+        glacier_client,
+        VAULT_NAME,
+        "test_sns_topic",
+        "test_archive_id",
+        "test_tier",
+        "test_account_id",
+    )
+    assert job_id is not None
+
+
+@patch("boto3.client")
+def test_glacier_initiate_job_failed(boto3_client_mock: MagicMock) -> None:
+    boto3_client_mock.initiate_job.side_effect = ClientError(
+        error_response={"Error": {"Code": "ResourceNotFoundException"}},
+        operation_name="InitiateJob",
+    )
+    job_id = glacier_initiate_job(
+        boto3_client_mock,
+        VAULT_NAME,
+        "test_sns_topic",
+        "test_archive_id",
+        "test_tier",
+        "test_account_id",
+    )
+    assert job_id == None
 
 
 def generate_initiate_archive_retrieval_items(

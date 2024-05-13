@@ -32,8 +32,10 @@ else:
     S3Client = object
 
 VAULT_NAME = "test_vault_chunk_generation_vault"
+EMPTY_VAULT_NAME = "test_empty_vault"
 WORKFLOW_RUN = "workflow_run_inventory_retrieval"
 WORKFLOW_RUN_RESUME = "workflow_run_inventory_retrieval_resume"
+WORKFLOW_EMPTY_VAULT = "workflow_empty_vault"
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -48,6 +50,7 @@ def set_up() -> Any:
     ddb_util.delete_all_table_items(os.environ[OutputKeys.METRIC_TABLE_NAME], "pk")
     s3_util.delete_all_inventory_files_from_s3(prefix=WORKFLOW_RUN)
     s3_util.delete_all_inventory_files_from_s3(prefix=WORKFLOW_RUN_RESUME)
+    s3_util.delete_all_inventory_files_from_s3(prefix=WORKFLOW_EMPTY_VAULT)
 
 
 @pytest.fixture(scope="module")
@@ -364,3 +367,27 @@ def test_state_machine_resuming_workflow(
     assert metric_item["Item"]["size_requested"]["N"] == "1000"
     assert metric_item["Item"]["count_staged"]["N"] == "50"
     assert metric_item["Item"]["size_staged"]["N"] == "1000"
+
+
+def test_empty_vault(
+    default_input: str,
+    sfn_client: SFNClient,
+    ddb_client: DynamoDBClient,
+    s3_client: S3Client,
+) -> None:
+    input_json = json.loads(default_input)
+    input_json["vault_name"] = EMPTY_VAULT_NAME
+    input_json["workflow_run"] = WORKFLOW_EMPTY_VAULT
+    input = json.dumps(input_json)
+    response = sfn_client.start_execution(
+        stateMachineArn=os.environ[OutputKeys.INVENTORY_RETRIEVAL_STATE_MACHINE_ARN],
+        input=input,
+    )
+    sfn_util.wait_till_state_machine_finish(response["executionArn"], timeout=420)
+    metric_item = ddb_client.get_item(
+        TableName=os.environ[OutputKeys.METRIC_TABLE_NAME],
+        Key={"pk": {"S": WORKFLOW_EMPTY_VAULT}},
+    )
+
+    assert metric_item["Item"]["count_requested"]["N"] == "0"
+    assert metric_item["Item"]["size_requested"]["N"] == "0"

@@ -42,6 +42,10 @@ def mock_anonymized_data() -> Dict[str, Any]:
             "StorageClass": "Glacier",
             "RetrievalTier": "Bulk",
             "DailyQuota": 10000,
+            "ProvidedInventory": "NO",
+            "TransferType": "LAUNCH",
+            "CrossRegionTransfer": "False",
+            "NamingOverrideFile": "NO",
             "VaultSize": 100,
             "ArchiveCount": 10,
         },
@@ -117,6 +121,12 @@ def test_send_job_stats(
             daily_quota=anonymized_submission_data["Data"]["DailyQuota"],
             storage_class=anonymized_submission_data["Data"]["StorageClass"],
             retrieval_tier=anonymized_submission_data["Data"]["RetrievalTier"],
+            provided_inventory=anonymized_submission_data["Data"]["ProvidedInventory"],
+            transfer_type=anonymized_submission_data["Data"]["TransferType"],
+            naming_override_file="",
+            cross_region_transfer=anonymized_submission_data["Data"][
+                "CrossRegionTransfer"
+            ],
         ).marshal(),
     )
 

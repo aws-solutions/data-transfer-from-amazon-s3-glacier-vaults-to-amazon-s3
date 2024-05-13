@@ -131,6 +131,17 @@ def _vault_generator(
 
 
 @mock_vault
+def test_empty_vault(vault: MockGlacierVault) -> Dict[str, Any]:
+    inventory_job_id = vault.initiate_job({"Type": GlacierJobType.INVENTORY_RETRIEVAL})
+    chunk_size = calculate_chunk_size(vault.inventory_size)
+    vault.set_inventory_metadata(inventory_job_id, chunk_size)
+    chunk_array = generate_chunk_array(vault.inventory_size, chunk_size, False)
+    for chunk in chunk_array:
+        vault.get_job_output(inventory_job_id, range=f"bytes={chunk}")
+    return vault.mock_data()
+
+
+@mock_vault
 def test_vault_chunk_generation_vault(vault: MockGlacierVault) -> Dict[str, Any]:
     return _vault_generator(vault, 45000, False)
 

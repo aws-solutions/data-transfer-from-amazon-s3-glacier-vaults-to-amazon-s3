@@ -18,7 +18,7 @@ class MockGlacierStack(Stack):
             self,
             "MockNotifySns",
             handler="solution.application.mocking.handlers.mock_notify_sns_handler",
-            runtime=lambda_.Runtime.PYTHON_3_10,
+            runtime=lambda_.Runtime.PYTHON_3_12,
             code=lambda_.Code.from_asset("source", exclude=["tests/**"]),
             description="Lambda to mock notifying SNS job completion.",
             timeout=Duration.seconds(20),
