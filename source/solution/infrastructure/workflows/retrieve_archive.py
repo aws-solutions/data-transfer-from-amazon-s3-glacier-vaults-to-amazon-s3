@@ -232,7 +232,7 @@ class Workflow:
             [
                 {
                     "id": "AwsSolutions-L1",
-                    "reason": "Python 3.11 is the latest version, but there is a bug in cdk-nag due to sorting",
+                    "reason": "Python 3.12 is the latest version, but there is a bug in cdk-nag due to sorting",
                 }
             ],
         )

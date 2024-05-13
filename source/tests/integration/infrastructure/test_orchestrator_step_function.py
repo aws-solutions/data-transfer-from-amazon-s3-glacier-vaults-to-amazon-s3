@@ -36,10 +36,11 @@ def default_input() -> str:
             workflow_run=WORKFLOW_RUN,
             chunk_size=2**20,
             archive_chunk_size=2**20,
-            name_override_presigned_url=None,
+            name_override_presigned_url="",
             migration_type="LAUNCH",
             tier="Bulk",
             s3_storage_class="STANDARD",
+            cross_region_transfer="True",
         )
     )
 

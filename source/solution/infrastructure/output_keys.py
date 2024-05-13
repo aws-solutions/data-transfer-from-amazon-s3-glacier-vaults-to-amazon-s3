@@ -29,7 +29,6 @@ class OutputKeys:
     ASYNC_FACILITATOR_LAMBDA_NAME = "AsyncFacilitatorLambdaName"
     INITIATE_RETRIEVAL_STATE_MACHINE_ARN = "InitiateRetrievalStateMachineArn"
     RETRIEVE_ARCHIVE_STATE_MACHINE_ARN = "RetrieveArchiveStateMachineArn"
-    INITIATE_METADATA_STATE_MACHINE_ARN = "InitiateMetadataStateMachineArn"
     GLACIER_RETRIEVAL_TABLE_NAME = "GlacierRetrievalTableName"
     INVENTORY_VALIDATION_LAMBDA_ARN = "InventoryValidationLambdaArn"
     CLEANUP_STATE_MACHINE_ARN = "CleanupStateMachineArn"

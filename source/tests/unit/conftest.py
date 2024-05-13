@@ -49,7 +49,7 @@ def aws_credentials() -> None:
 
 @pytest.fixture(scope="module")
 def solution_user_agent() -> str:
-    return "AwsSolution/SO0293/v1.1.0"
+    return "AwsSolution/SO0293/v1.1.1"
 
 
 @pytest.fixture(scope="module")

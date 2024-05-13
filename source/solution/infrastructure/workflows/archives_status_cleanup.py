@@ -100,7 +100,7 @@ class Workflow:
         )
 
         item_reader_config = ItemReaderConfig(
-            item_reader_resource="arn:aws:states:::s3:getObject",
+            item_reader_resource=f"arn:aws:states:::s3:getObject",
             reader_config={"InputType": "JSON"},
             item_reader_parameters={
                 "Bucket": stack_info.buckets.inventory_bucket.bucket_name,
@@ -110,7 +110,7 @@ class Workflow:
 
         result_config = ResultConfig(
             result_writer={
-                "Resource": "arn:aws:states:::s3:putObject",
+                "Resource": f"arn:aws:states:::s3:putObject",
                 "Parameters": {
                     "Bucket": stack_info.buckets.inventory_bucket.bucket_name,
                     "Prefix.$": f"States.Format('{{}}/ArchivesStatusCleanupDistributedMapOutput', $.workflow_run)",
@@ -176,7 +176,7 @@ class Workflow:
                     effect=iam.Effect.ALLOW,
                     actions=["states:DescribeExecution", "states:StopExecution"],
                     resources=[
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:{stack_info.state_machines.cleanup_archives_status_state_machine.state_machine_name}/*"
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:{stack_info.state_machines.cleanup_archives_status_state_machine.state_machine_name}/*"
                     ],
                 ),
             ],
@@ -251,7 +251,7 @@ class Workflow:
                     "id": "AwsSolutions-IAM5",
                     "reason": "IAM policy needed to run a Distributed Map state. https://docs.aws.amazon.com/step-functions/latest/dg/iam-policies-eg-dist-map.html",
                     "appliesTo": [
-                        f"Resource::arn:aws:states:<AWS::Region>:<AWS::AccountId>:execution:<{cleanup_archives_status_state_machine_logical_id}.Name>/*"
+                        f"Resource::arn:<AWS::Partition>:states:<AWS::Region>:<AWS::AccountId>:execution:<{cleanup_archives_status_state_machine_logical_id}.Name>/*"
                     ],
                 },
             ],

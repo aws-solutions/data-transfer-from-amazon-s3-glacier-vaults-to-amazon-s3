@@ -142,7 +142,7 @@ class Workflow:
                         "glacier:InitiateJob",
                     ],
                     resources=[
-                        f"arn:aws:glacier:{Aws.REGION}:{Aws.ACCOUNT_ID}:vaults/*"
+                        f"arn:{Aws.PARTITION}:glacier:{Aws.REGION}:{Aws.ACCOUNT_ID}:vaults/*"
                     ],
                 ),
             ],
@@ -165,7 +165,7 @@ class Workflow:
         stack_info.default_retry.apply_to_steps([extend_download_window_initiate_job])
 
         item_reader_config = ItemReaderConfig(
-            item_reader_resource="arn:aws:states:::s3:getObject",
+            item_reader_resource=f"arn:aws:states:::s3:getObject",
             reader_config={"InputType": "JSON"},
             item_reader_parameters={
                 "Bucket": stack_info.buckets.inventory_bucket.bucket_name,
@@ -175,7 +175,7 @@ class Workflow:
 
         result_config = ResultConfig(
             result_writer={
-                "Resource": "arn:aws:states:::s3:putObject",
+                "Resource": f"arn:aws:states:::s3:putObject",
                 "Parameters": {
                     "Bucket": stack_info.buckets.inventory_bucket.bucket_name,
                     "Prefix.$": f"States.Format('{{}}/ExtendDownloadWindowDistributedMapOutput', $.workflow_run)",
@@ -244,7 +244,7 @@ class Workflow:
                     effect=iam.Effect.ALLOW,
                     actions=["states:DescribeExecution", "states:StopExecution"],
                     resources=[
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:{stack_info.state_machines.extend_download_window_state_machine.state_machine_name}/*"
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:{stack_info.state_machines.extend_download_window_state_machine.state_machine_name}/*"
                     ],
                 ),
             ],
@@ -277,7 +277,7 @@ class Workflow:
                     "id": "AwsSolutions-IAM5",
                     "reason": "It's necessary to have wildcard permissions for archive retrieval initiate job, since the vault name is an input that is not known in advance",
                     "appliesTo": [
-                        "Resource::arn:aws:glacier:<AWS::Region>:<AWS::AccountId>:vaults/*"
+                        "Resource::arn:<AWS::Partition>:glacier:<AWS::Region>:<AWS::AccountId>:vaults/*"
                     ],
                 },
             ],
@@ -341,7 +341,7 @@ class Workflow:
                     "id": "AwsSolutions-IAM5",
                     "reason": "IAM policy needed to run a Distributed Map state. https://docs.aws.amazon.com/step-functions/latest/dg/iam-policies-eg-dist-map.html",
                     "appliesTo": [
-                        f"Resource::arn:aws:states:<AWS::Region>:<AWS::AccountId>:execution:<{extend_download_window_state_machine_logical_id}.Name>/*"
+                        f"Resource::arn:<AWS::Partition>:states:<AWS::Region>:<AWS::AccountId>:execution:<{extend_download_window_state_machine_logical_id}.Name>/*"
                     ],
                 },
             ],

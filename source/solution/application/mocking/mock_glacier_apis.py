@@ -64,6 +64,7 @@ class MockGlacierAPIs(GlacierClient):
                 if archive_id is None
                 else GlacierJobType.ARCHIVE_RETRIEVAL,
                 "archive_id": jobParameters.get("ArchiveId"),
+                "aws_partition": "test",
             }
             client.invoke(
                 FunctionName=os.environ["MOCK_NOTIFY_SNS_LAMBDA_ARN"],

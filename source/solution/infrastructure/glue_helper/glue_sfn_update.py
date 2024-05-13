@@ -73,7 +73,9 @@ if df.rdd.isEmpty():
         StructField("ArchiveDescription", StringType(), True),
         StructField("CreationDate", StringType(), True),
         StructField("Size", StringType(), True),
-        StructField("SHA256TreeHash", StringType(), True)
+        StructField("SHA256TreeHash", StringType(), True),
+        StructField("Filename", StringType(), True),
+        StructField("PartitionId", StringType(), True)
     ])
     df = spark.createDataFrame([], schema)
 dyf = DynamicFrame.fromDF(df, glueContext, "skipped_archives")
@@ -245,66 +247,64 @@ class GlueSfnUpdate(object):
             },
             "node-5": {
                 "CustomCode": {
-                    "Name": ARCHIVE_NAMING_CODE_NAME,
+                    "Name": "ValidateInput<=5TB",
                     "Inputs": ["node-3"],
-                    "ClassName": ARCHIVE_NAMING_CODE_NAME,
-                    "Code": self.custom_code,
+                    "ClassName": "validate_source_table",
+                    "Code": self.validate_source_input_custom_code,
                 }
             },
             "node-6": {
                 "CustomCode": {
-                    "Name": "validate_source_input",
+                    "Name": "ValidateInput>5TB",
                     "Inputs": ["node-4"],
                     "ClassName": "validate_source_table",
                     "Code": self.validate_source_input_custom_code,
                 }
             },
             "node-7": {
-                "S3CsvSource": {
-                    "Name": "S3 bucket - Naming Overrides",
-                    "Paths.$": f"States.Array(States.Format('s3://{self.s3_bucket_name}/{{}}/naming_overrides/', $.workflow_run))",
-                    "QuoteChar": "quote",
-                    "Separator": "comma",
-                    "Recurse": True,
-                    "WithHeader": True,
-                    "Escaper": "",
-                    "OutputSchemas": [
-                        {"Columns": self.archive_naming_override_columns}
-                    ],
-                },
-            },
-            "node-8": {
                 "SelectFromCollection": {
-                    "Name": "SelectFromCollection",
+                    "Name": "SelectFromCollection<=5TB",
                     "Inputs": ["node-5"],
                     "Index": 0,
                 }
             },
-            "node-9": {
+            "node-8": {
                 "SelectFromCollection": {
-                    "Name": "SelectFromCollection",
+                    "Name": "SelectFromCollection>5TB",
                     "Inputs": ["node-6"],
                     "Index": 0,
                 }
             },
+            "node-9": {
+                "CustomCode": {
+                    "Name": ARCHIVE_NAMING_CODE_NAME,
+                    "Inputs": ["node-7"],
+                    "ClassName": ARCHIVE_NAMING_CODE_NAME,
+                    "Code": self.custom_code,
+                }
+            },
             "node-10": {
                 "SparkSQL": {
-                    "Name": "SQL sorting",
-                    "Inputs": ["node-7", "node-8"],
-                    "SqlQuery": SORTING_SQL_QUERY,
-                    "SqlAliases": [
-                        {"From": "node-7", "Alias": "namingOverrides"},
-                        {"From": "node-8", "Alias": "myDataSource"},
+                    "Name": "SQL Metric",
+                    "Inputs": ["node-7"],
+                    "SqlQuery": METRIC_COLLECTION_SQL_QUERY,
+                    "SqlAliases": [{"From": "node-7", "Alias": "myDataSource"}],
+                    "OutputSchemas": [
+                        {
+                            "Columns": [
+                                {"Name": "TotalArchivesNumber", "Type": "bigint"},
+                                {"Name": "TotalArchivesSize", "Type": "bigint"},
+                            ]
+                        }
                     ],
-                    "OutputSchemas": [{"Columns": self.csv_file_columns_output}],
                 }
             },
             "node-11": {
                 "SparkSQL": {
-                    "Name": "SQL Metric",
-                    "Inputs": ["node-3"],
+                    "Name": "SQL Skipped Metric",
+                    "Inputs": ["node-8"],
                     "SqlQuery": METRIC_COLLECTION_SQL_QUERY,
-                    "SqlAliases": [{"From": "node-3", "Alias": "myDataSource"}],
+                    "SqlAliases": [{"From": "node-8", "Alias": "myDataSource"}],
                     "OutputSchemas": [
                         {
                             "Columns": [
@@ -318,7 +318,7 @@ class GlueSfnUpdate(object):
             "node-12": {
                 "S3DirectTarget": {
                     "Name": "S3 bucket - Not Migrated",
-                    "Inputs": ["node-9"],
+                    "Inputs": ["node-8"],
                     "Compression": "none",
                     "Format": "csv",
                     "SchemaChangePolicy": {"EnableUpdateCatalog": False},
@@ -326,46 +326,63 @@ class GlueSfnUpdate(object):
                 }
             },
             "node-13": {
-                "SparkSQL": {
-                    "Name": "SQL Skipped Metric",
+                "SelectFromCollection": {
+                    "Name": "SelectFromCollection",
                     "Inputs": ["node-9"],
-                    "SqlQuery": METRIC_COLLECTION_SQL_QUERY,
-                    "SqlAliases": [{"From": "node-9", "Alias": "myDataSource"}],
-                    "OutputSchemas": [
-                        {
-                            "Columns": [
-                                {"Name": "TotalArchivesNumber", "Type": "bigint"},
-                                {"Name": "TotalArchivesSize", "Type": "bigint"},
-                            ]
-                        }
-                    ],
+                    "Index": 0,
                 }
             },
             "node-14": {
+                "CustomCode": {
+                    "Name": METRIC_COLLECTION_CUSTOM_CODE_NAME,
+                    "Inputs": ["node-10", "node-11"],
+                    "ClassName": METRIC_COLLECTION_CUSTOM_CODE_NAME,
+                    "Code": self.metric_collection_code,
+                }
+            },
+            "node-15": {
+                "S3CsvSource": {
+                    "Name": "S3 bucket - Naming Overrides",
+                    "Paths.$": f"States.Array(States.Format('s3://{self.s3_bucket_name}/{{}}/naming_overrides/', $.workflow_run))",
+                    "QuoteChar": "quote",
+                    "Separator": "comma",
+                    "Recurse": True,
+                    "WithHeader": True,
+                    "Escaper": "",
+                    "OutputSchemas": [
+                        {"Columns": self.archive_naming_override_columns}
+                    ],
+                },
+            },
+            "node-16": {
+                "SparkSQL": {
+                    "Name": "SQL sorting",
+                    "Inputs": ["node-15", "node-13"],
+                    "SqlQuery": SORTING_SQL_QUERY,
+                    "SqlAliases": [
+                        {"From": "node-15", "Alias": "namingOverrides"},
+                        {"From": "node-13", "Alias": "myDataSource"},
+                    ],
+                    "OutputSchemas": [{"Columns": self.csv_file_columns_output}],
+                }
+            },
+            "node-17": {
+                "CustomCode": {
+                    "Name": VALIDATION_CUSTOM_CODE_NAME,
+                    "Inputs": ["node-7", "node-16"],
+                    "ClassName": VALIDATION_CUSTOM_CODE_NAME,
+                    "Code": VALIDATION_CODE,
+                }
+            },
+            "node-18": {
                 "S3DirectTarget": {
                     "Name": "S3 bucket - Sorted Inventory",
-                    "Inputs": ["node-10"],
+                    "Inputs": ["node-16"],
                     "PartitionKeys.$": "States.Array(States.Array('PartitionId'))",
                     "Compression": "none",
                     "Format": "csv",
                     "SchemaChangePolicy": {"EnableUpdateCatalog": False},
                     "Path.$": f"States.Format('s3://{self.s3_bucket_name}/{{}}/sorted_inventory/', $.workflow_run)",
-                }
-            },
-            "node-15": {
-                "CustomCode": {
-                    "Name": VALIDATION_CUSTOM_CODE_NAME,
-                    "Inputs": ["node-3", "node-10"],
-                    "ClassName": VALIDATION_CUSTOM_CODE_NAME,
-                    "Code": VALIDATION_CODE,
-                }
-            },
-            "node-16": {
-                "CustomCode": {
-                    "Name": METRIC_COLLECTION_CUSTOM_CODE_NAME,
-                    "Inputs": ["node-11", "node-13"],
-                    "ClassName": METRIC_COLLECTION_CUSTOM_CODE_NAME,
-                    "Code": self.metric_collection_code,
                 }
             },
         }

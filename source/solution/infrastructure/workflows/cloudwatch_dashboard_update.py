@@ -163,5 +163,7 @@ class Workflow:
             service="cloudwatch",
             action="putMetricData",
             parameters={"MetricData": metric_data, "Namespace": METRICS_NAMESPACE},
-            iam_resources=["arn:aws:states:::aws-sdk:cloudwatch:putMetricData"],
+            iam_resources=[
+                f"arn:{Aws.PARTITION}:states:::aws-sdk:cloudwatch:putMetricData"
+            ],
         )

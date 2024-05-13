@@ -116,7 +116,7 @@ class Workflow:
 
         remove_cloudwatch_dashboard_update_target = {
             "Type": "Task",
-            "Resource": "arn:aws:states:::aws-sdk:eventbridge:removeTargets",
+            "Resource": f"arn:{Aws.PARTITION}:states:::aws-sdk:eventbridge:removeTargets",
             "Parameters": {
                 "Rule": stack_info.eventbridge_rules.cloudwatch_dashboard_update_trigger.rule_name,
                 "Ids.$": "States.Array($.workflow_run)",
@@ -136,7 +136,7 @@ class Workflow:
 
         cloudwatch_dashboard_update_state_json = {
             "Type": "Task",
-            "Resource": "arn:aws:states:::states:startExecution.sync:2",
+            "Resource": f"arn:{Aws.PARTITION}:states:::states:startExecution.sync:2",
             "Parameters": {
                 "StateMachineArn": stack_info.state_machines.cloudwatch_dashboard_update_state_machine.state_machine_arn,
                 "Input.$": "$$.Execution.Input",
@@ -157,7 +157,7 @@ class Workflow:
 
         remove_extend_download_window_target = {
             "Type": "Task",
-            "Resource": "arn:aws:states:::aws-sdk:eventbridge:removeTargets",
+            "Resource": f"arn:{Aws.PARTITION}:states:::aws-sdk:eventbridge:removeTargets",
             "Parameters": {
                 "Rule": stack_info.eventbridge_rules.extend_download_window_trigger.rule_name,
                 "Ids.$": "States.Array($.workflow_run)",
@@ -227,7 +227,7 @@ class Workflow:
 
         remove_completion_checker_target = {
             "Type": "Task",
-            "Resource": "arn:aws:states:::aws-sdk:eventbridge:removeTargets",
+            "Resource": f"arn:{Aws.PARTITION}:states:::aws-sdk:eventbridge:removeTargets",
             "Parameters": {
                 "Rule": stack_info.eventbridge_rules.completion_checker_trigger.rule_name,
                 "Ids.$": "States.Array($.workflow_run)",
@@ -379,7 +379,7 @@ class Workflow:
                     effect=iam.Effect.ALLOW,
                     actions=["states:DescribeExecution", "states:StopExecution"],
                     resources=[
-                        f"arn:aws:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:{stack_info.state_machines.cloudwatch_dashboard_update_state_machine.state_machine_name}/*"
+                        f"arn:{Aws.PARTITION}:states:{Aws.REGION}:{Aws.ACCOUNT_ID}:execution:{stack_info.state_machines.cloudwatch_dashboard_update_state_machine.state_machine_name}/*"
                     ],
                 ),
             ],
@@ -402,7 +402,7 @@ class Workflow:
                         "events:DescribeRule",
                     ],
                     resources=[
-                        f"arn:aws:events:{Aws.REGION}:{Aws.ACCOUNT_ID}:rule/StepFunctionsGetEventsForStepFunctionsExecutionRule"
+                        f"arn:{Aws.PARTITION}:events:{Aws.REGION}:{Aws.ACCOUNT_ID}:rule/StepFunctionsGetEventsForStepFunctionsExecutionRule"
                     ],
                 ),
             ],
@@ -455,7 +455,7 @@ class Workflow:
                     "id": "AwsSolutions-IAM5",
                     "reason": "It's necessary to have wildcard permissions to make orchestrator workflow to StartExecution for the nested workflows",
                     "appliesTo": [
-                        f"Resource::arn:aws:states:<AWS::Region>:<AWS::AccountId>:execution:<{cloudwatch_dashboard_update_logical_id}.Name>/*"
+                        f"Resource::arn:<AWS::Partition>:states:<AWS::Region>:<AWS::AccountId>:execution:<{cloudwatch_dashboard_update_logical_id}.Name>/*"
                     ],
                 },
             ],

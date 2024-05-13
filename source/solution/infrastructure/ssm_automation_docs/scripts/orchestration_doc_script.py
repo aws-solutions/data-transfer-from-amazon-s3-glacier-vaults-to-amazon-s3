@@ -10,7 +10,7 @@ from typing import Dict
 import boto3
 from botocore.config import Config
 
-__boto_config__ = Config(user_agent_extra="AwsSolution/SO0293/v1.1.0")
+__boto_config__ = Config(user_agent_extra="AwsSolution/SO0293/v1.1.1")
 
 s3_storage_class_mapping: Dict[str, str] = {
     "S3 Glacier Deep Archive": "DEEP_ARCHIVE",
@@ -57,9 +57,13 @@ def script_handler(events, _context):  # type: ignore
         "tier": "Bulk",
         "workflow_run": workflow_run,
         "migration_type": migration_type,
+        "cross_region_transfer": str(
+            events["allow_cross_region_data_transfer"]
+            and events["acknowledge_cross_region"] == "YES"
+        ),
         "name_override_presigned_url": events["name_override_presigned_url"]
         if events["name_override_presigned_url"]
-        else None,
+        else "",
         "vault_name": vault_name,
     }
     sfn_client.start_execution(

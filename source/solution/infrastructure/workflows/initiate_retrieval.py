@@ -82,7 +82,7 @@ class Workflow:
                         "glacier:InitiateJob",
                     ],
                     resources=[
-                        f"arn:aws:glacier:{Aws.REGION}:{Aws.ACCOUNT_ID}:vaults/*"
+                        f"arn:{Aws.PARTITION}:glacier:{Aws.REGION}:{Aws.ACCOUNT_ID}:vaults/*"
                     ],
                 ),
             ],
@@ -328,7 +328,7 @@ class Workflow:
                     "id": "AwsSolutions-IAM5",
                     "reason": "It's necessary to have wildcard permissions for archive retrieval initiate job, since the vault name is an input that is not known in advance",
                     "appliesTo": [
-                        "Resource::arn:aws:glacier:<AWS::Region>:<AWS::AccountId>:vaults/*"
+                        "Resource::arn:<AWS::Partition>:glacier:<AWS::Region>:<AWS::AccountId>:vaults/*"
                     ],
                 },
             ],

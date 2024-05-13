@@ -51,6 +51,12 @@ def send_job_stats(stats_type: str, workflow_run: str) -> None:
             "RetrievalTier": workflow_metadata_record.retrieval_tier,
             "StartTime": workflow_metadata_record.start_time,
             "DailyQuota": workflow_metadata_record.daily_quota,
+            "ProvidedInventory": workflow_metadata_record.provided_inventory,
+            "TransferType": workflow_metadata_record.transfer_type,
+            "CrossRegionTransfer": workflow_metadata_record.cross_region_transfer,
+            "NamingOverrideFile": "NO"
+            if workflow_metadata_record.naming_override_file == ""
+            else "YES",
             "VaultSize": metric_record.size_total,
             "ArchiveCount": metric_record.count_total,
         },
@@ -92,6 +98,8 @@ def send_stats(anonymized_data: Dict[str, Any]) -> None:
             f"Sending anonymized data has been disabled. Anonymized_data: {anonymized_data}"
         )
         return
+
+    logger.debug(f"Stats anonymized data: {anonymized_data}")
 
     request = json.dumps(anonymized_data).encode("utf-8")
     headers = {"Content-Type": "application/json", "Content-Length": str(len(request))}

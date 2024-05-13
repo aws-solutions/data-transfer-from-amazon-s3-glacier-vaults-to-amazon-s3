@@ -41,7 +41,7 @@ class BaseAutomationDocument(ExecuteScriptAutomationDocument):
             "region": region,
             "sns_topic_arn": topic_arn,
             "state_machine_arn": state_machine_arn,
-            "allow_cross_region_data_transfer": allow_cross_region_data_transfer,
+            "allow_cross_region_data_transfer": str(allow_cross_region_data_transfer),
         }
 
     @property

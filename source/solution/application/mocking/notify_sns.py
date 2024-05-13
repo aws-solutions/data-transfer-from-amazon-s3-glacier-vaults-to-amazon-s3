@@ -32,6 +32,7 @@ def notify_sns_job_completion(
     archive_id: str,
 ) -> None:
     client: SNSClient = boto3.client("sns", config=__boto_config__)
+    aws_partition = client.meta.partition
     mock_client = MockGlacierAPIs()
     if retrieval_type == GlacierJobType.INVENTORY_RETRIEVAL:
         message = {
@@ -48,7 +49,7 @@ def notify_sns_job_completion(
             "SNSTopic": sns_topic,
             "StatusCode": "Succeeded",
             "StatusMessage": "Succeeded",
-            "VaultARN": f"arn:aws:glacier:{os.environ['AWS_REGION']}:{account_id}:vaults/{vault_name}",
+            "VaultARN": f"arn:{aws_partition}:glacier:{os.environ['AWS_REGION']}:{account_id}:vaults/{vault_name}",
         }
     else:
         inventory_body = generate_inventory_for_archive_retrieval(
@@ -81,7 +82,7 @@ def notify_sns_job_completion(
             "StatusCode": "Succeeded",
             "StatusMessage": "Succeeded",
             "Tier": "Bulk",
-            "VaultARN": f"arn:aws:glacier:{os.environ['AWS_REGION']}:{account_id}:vaults/{vault_name}",
+            "VaultARN": f"arn:{aws_partition}:glacier:{os.environ['AWS_REGION']}:{account_id}:vaults/{vault_name}",
         }
 
     time.sleep(NOTIFICATION_DELAY_IN_SEC)

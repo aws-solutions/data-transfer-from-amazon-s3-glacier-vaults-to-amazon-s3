@@ -231,7 +231,7 @@ def test_chunk_retrieval_lambda_created(
         props={
             "Properties": {
                 "Handler": "solution.application.handlers.archive_retrieval",
-                "Runtime": "python3.11",
+                "Runtime": "python3.12",
                 "MemorySize": 1536,
                 "Timeout": 900,
             },
@@ -257,7 +257,7 @@ def test_archive_validation_lambda_created(
         props={
             "Properties": {
                 "Handler": "solution.application.handlers.archive_validation",
-                "Runtime": "python3.11",
+                "Runtime": "python3.12",
                 "MemorySize": 256,
                 "Timeout": 900,
             },
@@ -283,7 +283,7 @@ def test_inventory_chunk_determination_created(
         props={
             "Properties": {
                 "Handler": "solution.application.handlers.inventory_chunking",
-                "Runtime": "python3.11",
+                "Runtime": "python3.12",
             },
         },
     )
@@ -314,7 +314,7 @@ def test_facilitator_lambda_created(
             },
             "Handler": "solution.application.handlers.async_facilitator",
             "MemorySize": 256,
-            "Runtime": "python3.11",
+            "Runtime": "python3.12",
         },
     )
 
@@ -400,19 +400,9 @@ def test_facilitator_default_policy(
                                     "Fn::Join": [
                                         "",
                                         [
-                                            "arn:aws:states:",
-                                            {"Ref": "AWS::Region"},
-                                            ":",
-                                            {"Ref": "AWS::AccountId"},
-                                            ":execution:InitiateMetadataStateMachine*",
-                                        ],
-                                    ]
-                                },
-                                {
-                                    "Fn::Join": [
-                                        "",
-                                        [
-                                            "arn:aws:states:",
+                                            "arn:",
+                                            {"Ref": "AWS::Partition"},
+                                            ":states:",
                                             {"Ref": "AWS::Region"},
                                             ":",
                                             {"Ref": "AWS::AccountId"},
@@ -424,7 +414,9 @@ def test_facilitator_default_policy(
                                     "Fn::Join": [
                                         "",
                                         [
-                                            "arn:aws:states:",
+                                            "arn:",
+                                            {"Ref": "AWS::Partition"},
+                                            ":states:",
                                             {"Ref": "AWS::Region"},
                                             ":",
                                             {"Ref": "AWS::AccountId"},
@@ -436,7 +428,9 @@ def test_facilitator_default_policy(
                                     "Fn::Join": [
                                         "",
                                         [
-                                            "arn:aws:states:",
+                                            "arn:",
+                                            {"Ref": "AWS::Partition"},
+                                            ":states:",
                                             {"Ref": "AWS::Region"},
                                             ":",
                                             {"Ref": "AWS::AccountId"},
@@ -448,19 +442,9 @@ def test_facilitator_default_policy(
                                     "Fn::Join": [
                                         "",
                                         [
-                                            "arn:aws:states:",
-                                            {"Ref": "AWS::Region"},
-                                            ":",
-                                            {"Ref": "AWS::AccountId"},
-                                            ":stateMachine:InitiateMetadataStateMachine*",
-                                        ],
-                                    ]
-                                },
-                                {
-                                    "Fn::Join": [
-                                        "",
-                                        [
-                                            "arn:aws:states:",
+                                            "arn:",
+                                            {"Ref": "AWS::Partition"},
+                                            ":states:",
                                             {"Ref": "AWS::Region"},
                                             ":",
                                             {"Ref": "AWS::AccountId"},
@@ -472,7 +456,9 @@ def test_facilitator_default_policy(
                                     "Fn::Join": [
                                         "",
                                         [
-                                            "arn:aws:states:",
+                                            "arn:",
+                                            {"Ref": "AWS::Partition"},
+                                            ":states:",
                                             {"Ref": "AWS::Region"},
                                             ":",
                                             {"Ref": "AWS::AccountId"},
@@ -484,7 +470,9 @@ def test_facilitator_default_policy(
                                     "Fn::Join": [
                                         "",
                                         [
-                                            "arn:aws:states:",
+                                            "arn:",
+                                            {"Ref": "AWS::Partition"},
+                                            ":states:",
                                             {"Ref": "AWS::Region"},
                                             ":",
                                             {"Ref": "AWS::AccountId"},
@@ -683,7 +671,9 @@ def test_glue_job_policy(stack: SolutionStack, template: assertions.Template) ->
                                 "Fn::Join": [
                                     "",
                                     [
-                                        "arn:aws:glue:",
+                                        "arn:",
+                                        {"Ref": "AWS::Partition"},
+                                        ":glue:",
                                         {"Ref": "AWS::Region"},
                                         ":",
                                         {"Ref": "AWS::AccountId"},
@@ -724,7 +714,16 @@ def test_glue_job_logging_policy(
                                 "logs:PutLogEvents",
                             ],
                             "Effect": "Allow",
-                            "Resource": "arn:aws:logs:*:*:*:/aws-glue/*",
+                            "Resource": {
+                                "Fn::Join": [
+                                    "",
+                                    [
+                                        "arn:",
+                                        {"Ref": "AWS::Partition"},
+                                        ":logs:*:*:*:/aws-glue/*",
+                                    ],
+                                ]
+                            },
                         },
                     ]
                 },
