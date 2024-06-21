@@ -67,6 +67,22 @@ def test_empty_file_name_from_json() -> None:
     )
 
 
+def test_cloudberry_json_format_lowercase() -> None:
+    assert (
+        parse_description(
+            '{"path":"CB+F8-M5/B:/c01/q004/s0010/c01+AF8-s00+A8-s0010+F8/h01.1094.dpx","UTCDateModified":"20100310T110623Z"}'
+        )
+        == "CB+F8-M5/B:/c01/q004/s0010/c01+AF8-s00+A8-s0010+F8/h01.1094.dpx"
+    )
+
+
+def test_empty_file_name_from_json_lowercase() -> None:
+    assert (
+        parse_filename("AAAQQQ", '{"path":"   ","UTCDateModified":"20100310T110623Z"}')
+        == "00undefined/AAAQQQ"
+    )
+
+
 def test_empty_archive_description() -> None:
     assert parse_filename("AAAQQQ", "             ") == "00undefined/AAAQQQ"
 

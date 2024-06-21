@@ -47,7 +47,7 @@ def parse_description(archive_description: str) -> str:
     if re.search(r"{\s*\\*\".*}\s*", archive_description):
         try:
             json_object = json.loads(archive_description)
-            path = json_object.get("Path")
+            path = json_object.get("Path") or json_object.get("path")
             if isinstance(path, str):
                 return path
         except Exception as _:
