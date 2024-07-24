@@ -10,7 +10,7 @@ from typing import Dict
 import boto3
 from botocore.config import Config
 
-__boto_config__ = Config(user_agent_extra="AwsSolution/SO0293/v1.1.1")
+__boto_config__ = Config(user_agent_extra="AwsSolution/SO0293/v1.1.2")
 
 s3_storage_class_mapping: Dict[str, str] = {
     "S3 Glacier Deep Archive": "DEEP_ARCHIVE",

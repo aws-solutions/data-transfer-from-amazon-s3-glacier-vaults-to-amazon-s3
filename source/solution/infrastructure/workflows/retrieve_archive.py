@@ -33,6 +33,7 @@ class Workflow:
         stack_info.lambdas.chunk_retrieval_lambda = SolutionsPythonFunction(
             stack_info.scope,
             "ChunkRetrieval",
+            stack_info.cfn_conditions.is_gov_cn_partition_condition,
             stack_info.parameters.enable_lambda_tracing_parameter.value_as_string,
             handler="solution.application.handlers.archive_retrieval",
             code=stack_info.lambda_source,
@@ -89,6 +90,7 @@ class Workflow:
         stack_info.lambdas.archive_validation_lambda = SolutionsPythonFunction(
             stack_info.scope,
             "ArchiveValidation",
+            stack_info.cfn_conditions.is_gov_cn_partition_condition,
             stack_info.parameters.enable_lambda_tracing_parameter.value_as_string,
             handler="solution.application.handlers.archive_validation",
             code=stack_info.lambda_source,

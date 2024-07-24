@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 from dataclasses import dataclass, field
 from typing import Dict, Optional
 
-from aws_cdk import CfnOutput, CfnParameter, Stack
+from aws_cdk import CfnCondition, CfnOutput, CfnParameter, Stack
 from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk import aws_events as eventbridge
 from aws_cdk import aws_iam as iam
@@ -85,6 +85,11 @@ class Parameters:
 
 
 @dataclass
+class CfNConditions:
+    is_gov_cn_partition_condition: CfnCondition | None = field(default=None)
+
+
+@dataclass
 class Tables:
     glacier_retrieval_table: dynamodb.Table | None = field(default=None)
     metric_table: dynamodb.Table | None = field(default=None)
@@ -119,6 +124,7 @@ class StackInfo:
     default_retry: TaskRetry
     queues: Queues = field(default_factory=lambda: Queues())
     parameters: Parameters = field(default_factory=lambda: Parameters())
+    cfn_conditions: CfNConditions = field(default_factory=lambda: CfNConditions())
     tables: Tables = field(default_factory=lambda: Tables())
     buckets: Buckets = field(default_factory=lambda: Buckets())
     lambdas: Lambdas = field(default_factory=lambda: Lambdas())

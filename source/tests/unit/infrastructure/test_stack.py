@@ -231,13 +231,12 @@ def test_chunk_retrieval_lambda_created(
         props={
             "Properties": {
                 "Handler": "solution.application.handlers.archive_retrieval",
-                "Runtime": "python3.12",
+                "Runtime": {"Fn::If": ["GovCnCondition", "python3.11", "python3.12"]},
                 "MemorySize": 1536,
                 "Timeout": 900,
             },
         },
     )
-
     template.has_output(
         OutputKeys.CHUNK_RETRIEVAL_LAMBDA_ARN,
         {"Value": {"Ref": logical_id}},
@@ -257,7 +256,7 @@ def test_archive_validation_lambda_created(
         props={
             "Properties": {
                 "Handler": "solution.application.handlers.archive_validation",
-                "Runtime": "python3.12",
+                "Runtime": {"Fn::If": ["GovCnCondition", "python3.11", "python3.12"]},
                 "MemorySize": 256,
                 "Timeout": 900,
             },
@@ -283,7 +282,7 @@ def test_inventory_chunk_determination_created(
         props={
             "Properties": {
                 "Handler": "solution.application.handlers.inventory_chunking",
-                "Runtime": "python3.12",
+                "Runtime": {"Fn::If": ["GovCnCondition", "python3.11", "python3.12"]},
             },
         },
     )
@@ -314,7 +313,7 @@ def test_facilitator_lambda_created(
             },
             "Handler": "solution.application.handlers.async_facilitator",
             "MemorySize": 256,
-            "Runtime": "python3.12",
+            "Runtime": {"Fn::If": ["GovCnCondition", "python3.11", "python3.12"]},
         },
     )
 

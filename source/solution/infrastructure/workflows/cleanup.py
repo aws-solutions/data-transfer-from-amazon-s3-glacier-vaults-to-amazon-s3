@@ -57,6 +57,7 @@ class Workflow:
         stack_info.lambdas.post_workflow_dashboard_update = SolutionsPythonFunction(
             stack_info.scope,
             "PostWorkflowDashboardUpdate",
+            stack_info.cfn_conditions.is_gov_cn_partition_condition,
             stack_info.parameters.enable_lambda_tracing_parameter.value_as_string,
             handler="solution.application.handlers.post_workflow_dashboard_update",
             code=stack_info.lambda_source,
@@ -178,6 +179,7 @@ class Workflow:
         stack_info.lambdas.cleanup_incomplete_multipart_uploads_lambda = SolutionsPythonFunction(
             stack_info.scope,
             "CleanupIncompleteMultipartUploads",
+            stack_info.cfn_conditions.is_gov_cn_partition_condition,
             stack_info.parameters.enable_lambda_tracing_parameter.value_as_string,
             handler="solution.application.handlers.cleanup_incomplete_multipart_uploads",
             code=stack_info.lambda_source,

@@ -43,6 +43,7 @@ class Workflow:
         stack_info.lambdas.initiate_archive_retrieval_lambda = SolutionsPythonFunction(
             stack_info.scope,
             "InitiateArchiveRetrieval",
+            stack_info.cfn_conditions.is_gov_cn_partition_condition,
             stack_info.parameters.enable_lambda_tracing_parameter.value_as_string,
             handler="solution.application.handlers.initiate_archive_retrieval_batch",
             code=stack_info.lambda_source,
@@ -178,6 +179,7 @@ class Workflow:
         stack_info.lambdas.calculate_timeout_lambda = SolutionsPythonFunction(
             stack_info.scope,
             "CalculateTimeout",
+            stack_info.cfn_conditions.is_gov_cn_partition_condition,
             stack_info.parameters.enable_lambda_tracing_parameter.value_as_string,
             handler="solution.application.handlers.initiation_timeout",
             code=stack_info.lambda_source,

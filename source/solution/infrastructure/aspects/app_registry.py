@@ -6,10 +6,27 @@ SPDX-License-Identifier: Apache-2.0
 from typing import Optional
 
 import jsii
-from aws_cdk import Aws, CfnResource, Fn, IAspect, Stack, Tags
+from aws_cdk import Aws, CfnCondition, CfnResource, Fn, IAspect, Stack, Tags
 from aws_cdk import aws_applicationinsights as applicationinsights
 from aws_cdk import aws_servicecatalogappregistry_alpha as appreg
 from constructs import Construct, IConstruct
+
+
+@jsii.implements(IAspect)
+class AppRegistryCondition(Construct):
+    def __init__(self, scope: Construct, id: str):
+        super().__init__(scope, id)
+        self.deploy_if_not_china_partition = CfnCondition(
+            self,
+            "DeployIfNotChinaPartition",
+            expression=Fn.condition_not(Fn.condition_equals(Aws.PARTITION, "aws-cn")),
+        )
+
+    def visit(self, node: IConstruct) -> None:
+        if isinstance(node, CfnResource):
+            node.add_override(
+                "Condition", self.deploy_if_not_china_partition.logical_id
+            )
 
 
 @jsii.implements(IAspect)
