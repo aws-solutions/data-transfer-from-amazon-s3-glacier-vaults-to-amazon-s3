@@ -70,6 +70,7 @@ class Workflow:
         stack_info.lambdas.archives_needing_window_extension_lambda = SolutionsPythonFunction(
             stack_info.scope,
             "ArchivesNeedingWindowExtension",
+            stack_info.cfn_conditions.is_gov_cn_partition_condition,
             stack_info.parameters.enable_lambda_tracing_parameter.value_as_string,
             handler="solution.application.handlers.archives_needing_window_extension",
             code=stack_info.lambda_source,
@@ -106,6 +107,7 @@ class Workflow:
         stack_info.lambdas.extend_download_window_initiate_retrieval_lambda = SolutionsPythonFunction(
             stack_info.scope,
             "ExtendDownloadInitiateRetrieval",
+            stack_info.cfn_conditions.is_gov_cn_partition_condition,
             stack_info.parameters.enable_lambda_tracing_parameter.value_as_string,
             handler="solution.application.handlers.extend_archive_retrieval_batch",
             code=stack_info.lambda_source,

@@ -9,7 +9,10 @@ from typing import Any
 
 import aws_cdk as cdk
 
-from solution.infrastructure.aspects.app_registry import AppRegistry
+from solution.infrastructure.aspects.app_registry import (
+    AppRegistry,
+    AppRegistryCondition,
+)
 from solution.infrastructure.stack import SolutionStack
 from solution.mocking.mock_glacier_stack import MockGlacierStack
 from solution.pipeline.stack import PipelineStack
@@ -41,6 +44,13 @@ def _load_cdk_context() -> Any:
     return config.get("context", {})
 
 
+def _setup_app_registry(app: cdk.App, stack: SolutionStack) -> None:
+    app_registry = AppRegistry(stack, "AppRegistryAspect")
+    app_registry_condition = AppRegistryCondition(stack, "AppRegistryConditionAspect")
+    cdk.Aspects.of(app_registry).add(app_registry_condition)
+    cdk.Aspects.of(app).add(app_registry)
+
+
 def main() -> None:
     app = cdk.App(context=_load_cdk_context())
     solution_stack = SolutionStack(
@@ -48,7 +58,7 @@ def main() -> None:
         "data-transfer-from-amazon-s3-glacier-vaults-to-amazon-s3",
         synthesizer=synthesizer,
     )
-    cdk.Aspects.of(app).add(AppRegistry(solution_stack, "AppRegistryAspect"))
+    _setup_app_registry(app, solution_stack)
     PipelineStack(app, "pipeline")
     MockGlacierStack(app, "mock-glacier")
     app.synth()

@@ -63,6 +63,7 @@ class Workflow:
         stack_info.lambdas.archive_naming_override_lambda = SolutionsPythonFunction(
             stack_info.scope,
             "ArchiveNamingOverride",
+            stack_info.cfn_conditions.is_gov_cn_partition_condition,
             stack_info.parameters.enable_lambda_tracing_parameter.value_as_string,
             handler="solution.application.handlers.archive_naming_overrides",
             code=stack_info.lambda_source,
@@ -80,6 +81,7 @@ class Workflow:
             SolutionsPythonFunction(
                 stack_info.scope,
                 "InitiateInventoryRetrieval",
+                stack_info.cfn_conditions.is_gov_cn_partition_condition,
                 stack_info.parameters.enable_lambda_tracing_parameter.value_as_string,
                 handler="solution.application.handlers.initiate_inventory_retrieval",
                 code=stack_info.lambda_source,
@@ -248,6 +250,7 @@ class Workflow:
         stack_info.lambdas.inventory_chunk_determination_lambda = SolutionsPythonFunction(
             stack_info.scope,
             "InventoryChunkDetermination",
+            stack_info.cfn_conditions.is_gov_cn_partition_condition,
             stack_info.parameters.enable_lambda_tracing_parameter.value_as_string,
             handler="solution.application.handlers.inventory_chunking",
             code=stack_info.lambda_source,
@@ -347,6 +350,7 @@ class Workflow:
         stack_info.lambdas.inventory_retrieval_lambda_function = SolutionsPythonFunction(
             stack_info.scope,
             "InventoryChunkDownload",
+            stack_info.cfn_conditions.is_gov_cn_partition_condition,
             stack_info.parameters.enable_lambda_tracing_parameter.value_as_string,
             handler="solution.application.handlers.inventory_retrieval",
             code=stack_info.lambda_source,
@@ -448,6 +452,7 @@ class Workflow:
         stack_info.lambdas.inventory_validation_lambda = SolutionsPythonFunction(
             stack_info.scope,
             "InventoryValidation",
+            stack_info.cfn_conditions.is_gov_cn_partition_condition,
             stack_info.parameters.enable_lambda_tracing_parameter.value_as_string,
             handler="solution.application.handlers.inventory_validation",
             code=stack_info.lambda_source,
@@ -517,6 +522,7 @@ class Workflow:
         stack_info.lambdas.send_anonymized_stats_lambda = SolutionsPythonFunction(
             stack_info.scope,
             "SendAnonymizedStats",
+            stack_info.cfn_conditions.is_gov_cn_partition_condition,
             stack_info.parameters.enable_lambda_tracing_parameter.value_as_string,
             handler="solution.application.handlers.anonymized_stats",
             code=stack_info.lambda_source,
@@ -528,7 +534,7 @@ class Workflow:
                 "ACCOUNT_ID": Aws.ACCOUNT_ID,
                 "REGION": Aws.REGION,
                 "VERSION": stack_info.scope.node.try_get_context("SOLUTION_VERSION")
-                or "v1.1.1",
+                or "v1.1.2",
                 "SOLUTION_ID": stack_info.scope.node.try_get_context("SOLUTION_ID")
                 or "SO0293",
                 "SEND_ANONYMIZED_STATISTICS": "Yes",

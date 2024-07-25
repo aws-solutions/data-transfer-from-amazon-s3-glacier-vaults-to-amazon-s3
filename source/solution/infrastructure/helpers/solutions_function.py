@@ -4,7 +4,7 @@ SPDX-License-Identifier: Apache-2.0
 """
 
 import logging
-from typing import Any
+from typing import Any, Optional
 
 import aws_cdk.aws_iam as iam
 from aws_cdk import Aws, CfnCondition, Fn
@@ -14,7 +14,8 @@ from constructs import Construct
 
 from solution.application.util.exceptions import ResourceNotFound
 
-DEFAULT_RUNTIME = Runtime.PYTHON_3_12
+DEFAULT_RUNTIME = "python3.12"
+GOV_CN_RUNTIME = "python3.11"
 
 
 class SolutionsPythonFunction(Function):
@@ -22,6 +23,7 @@ class SolutionsPythonFunction(Function):
         self,
         scope: Construct,
         construct_id: str,
+        is_gov_cn_partition_condition: Optional[CfnCondition],
         enable_x_ray_tracing: str,
         **kwargs: Any,
     ):
@@ -33,14 +35,34 @@ class SolutionsPythonFunction(Function):
             kwargs["role"] = self._create_role()
 
         # set runtime to Python 3.12 unless a runtime is passed
+        # GCR and GovCloud regions do not support Python 3.12
+        runtime = DEFAULT_RUNTIME
+        if is_gov_cn_partition_condition:
+            runtime = Fn.condition_if(
+                is_gov_cn_partition_condition.logical_id,
+                GOV_CN_RUNTIME,
+                DEFAULT_RUNTIME,
+            ).to_string()
         if not kwargs.get("runtime"):
-            kwargs["runtime"] = DEFAULT_RUNTIME
+            kwargs["runtime"] = Runtime(runtime)
 
         # create default environment variable LOGGING_LEVEL
         kwargs.setdefault("environment", {})["LOGGING_LEVEL"] = str(logging.INFO)
 
         # initialize the parent Function
         super().__init__(scope, construct_id, **kwargs)
+
+        # TODO: Remove the suppression once Python 3.12 is supported in GovCloud and GCD
+        # AwsSolutions-L1 threw an error during validation because the parameter references an intrinsic function.
+        NagSuppressions.add_resource_suppressions(
+            self,
+            [
+                {
+                    "id": "CdkNagValidationFailure",
+                    "reason": "Suppressing validation failure caused by intrinsic function in runtime.",
+                },
+            ],
+        )
 
         self._configure_x_ray_tracing(enable_x_ray_tracing)
 

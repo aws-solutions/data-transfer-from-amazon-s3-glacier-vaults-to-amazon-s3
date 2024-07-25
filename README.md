@@ -168,6 +168,10 @@ generated using AWS CDK, for further information on CDK please refer to the
 
 This solution collects anonymous operational metrics to help AWS improve the quality and features of the solution. For more information, including how to disable this capability, please see the [implementation guide](https://docs.aws.amazon.com/solutions/latest/instance-scheduler-on-aws/anonymized-data.html).
 
+
+## External Contributors
+[@diegokodify](https://github.com/diegokodify) for [#4](https://github.com/aws-solutions/data-transfer-from-amazon-s3-glacier-vaults-to-amazon-s3/pull/4).
+
 ---
 
 Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.

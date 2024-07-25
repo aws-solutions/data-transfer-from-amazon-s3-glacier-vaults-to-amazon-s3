@@ -7,10 +7,12 @@ from typing import Optional
 
 from aws_cdk import (
     Aws,
+    CfnCondition,
     CfnElement,
     CfnOutput,
     CfnParameter,
     Duration,
+    Fn,
     RemovalPolicy,
     Stack,
     StackSynthesizer,
@@ -88,6 +90,16 @@ class SolutionStack(Stack):
             async_facilitator_topic=async_facilitator_topic,
             outputs={},
             default_retry=TaskRetry(),
+        )
+
+        # TODO: Remove this condition once Python 3.12 is supported in GovCloud and GCD
+        stack_info.cfn_conditions.is_gov_cn_partition_condition = CfnCondition(
+            self,
+            "GovCnCondition",
+            expression=Fn.condition_or(
+                Fn.condition_equals(Aws.PARTITION, "aws-us-gov"),
+                Fn.condition_equals(Aws.PARTITION, "aws-cn"),
+            ),
         )
 
         notifications_dlq = sqs.DeadLetterQueue(
@@ -344,6 +356,7 @@ class SolutionStack(Stack):
         stack_info.lambdas.notifications_processor_lambda = SolutionsPythonFunction(
             self,
             "NotificationsProcessor",
+            stack_info.cfn_conditions.is_gov_cn_partition_condition,
             stack_info.parameters.enable_lambda_tracing_parameter.value_as_string,
             handler="solution.application.handlers.notifications_processor",
             code=lambda_source,
@@ -368,6 +381,7 @@ class SolutionStack(Stack):
         stack_info.lambdas.completion_checker_lambda = SolutionsPythonFunction(
             self,
             "CompletionChecker",
+            stack_info.cfn_conditions.is_gov_cn_partition_condition,
             stack_info.parameters.enable_lambda_tracing_parameter.value_as_string,
             handler="solution.application.handlers.completion_checker",
             code=lambda_source,
@@ -426,6 +440,7 @@ class SolutionStack(Stack):
         stack_info.lambdas.async_facilitator_lambda = SolutionsPythonFunction(
             self,
             "AsyncFacilitator",
+            stack_info.cfn_conditions.is_gov_cn_partition_condition,
             stack_info.parameters.enable_lambda_tracing_parameter.value_as_string,
             handler="solution.application.handlers.async_facilitator",
             code=lambda_source,
@@ -476,6 +491,7 @@ class SolutionStack(Stack):
         stack_info.lambdas.metric_update_on_status_change_lambda = SolutionsPythonFunction(
             self,
             "MetricsProcessor",
+            stack_info.cfn_conditions.is_gov_cn_partition_condition,
             stack_info.parameters.enable_lambda_tracing_parameter.value_as_string,
             handler="solution.application.handlers.update_metric_on_status_change",
             code=lambda_source,

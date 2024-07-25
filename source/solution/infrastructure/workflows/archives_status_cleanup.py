@@ -35,6 +35,7 @@ class Workflow:
         stack_info.lambdas.archives_needing_status_cleanup_lambda = SolutionsPythonFunction(
             stack_info.scope,
             "ArchivesNeedingStatusCleanup",
+            stack_info.cfn_conditions.is_gov_cn_partition_condition,
             stack_info.parameters.enable_lambda_tracing_parameter.value_as_string,
             handler="solution.application.handlers.archives_needing_status_cleanup",
             code=stack_info.lambda_source,
@@ -69,6 +70,7 @@ class Workflow:
         stack_info.lambdas.cleanup_archives_status_lambda = SolutionsPythonFunction(
             stack_info.scope,
             "CleanupArchivesStatus",
+            stack_info.cfn_conditions.is_gov_cn_partition_condition,
             stack_info.parameters.enable_lambda_tracing_parameter.value_as_string,
             handler="solution.application.handlers.cleanup_archives_status_batch",
             code=stack_info.lambda_source,
