@@ -8,9 +8,11 @@ from unittest import mock
 
 import boto3
 import pytest
+from botocore.exceptions import ClientError
 from mypy_boto3_dynamodb import DynamoDBClient
 
 from solution.infrastructure.ssm_automation_docs.scripts.orchestration_doc_script import (
+    check_cross_account_transfer,
     check_cross_region_transfer,
     script_handler,
 )
@@ -26,12 +28,24 @@ def test_script_handler_launch_automation() -> None:
     with mock.patch("boto3.client") as mock_client, mock.patch(
         "solution.infrastructure.ssm_automation_docs.scripts.orchestration_doc_script.datetime"
     ) as mock_datetime:
-        mock_sf = mock.Mock()
-        mock_sf.start_execution.return_value = {
+        mock_s3_client = mock.Mock()
+        mock_sts_client = mock.Mock()
+        mock_step_function_client = mock.Mock()
+
+        mock_s3_client.get_bucket_acl.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200}
+        }
+        mock_sts_client.get_caller_identity.return_value = {"Account": "123456789012"}
+        mock_step_function_client.start_execution.return_value = {
             "executionArn": "test_arn",
             "startDate": "test_date",
         }
-        mock_client.return_value = mock_sf
+
+        mock_client.side_effect = [
+            mock_step_function_client,
+            mock_s3_client,
+            mock_sts_client,
+        ]
         mock_datetime.timestamp.return_value = "1630251600.123456"
 
         # sample events to pass to the handler
@@ -63,7 +77,7 @@ def test_script_handler_launch_automation() -> None:
         events["s3_storage_class"] = "GLACIER_IR"
         events["name_override_presigned_url"] = ""
         # assert that the start_execution method was called with the correct arguments
-        mock_sf.start_execution.assert_called_once_with(
+        mock_step_function_client.start_execution.assert_called_once_with(
             stateMachineArn=events.pop("state_machine_arn"), input=json.dumps(events)
         )
 
@@ -102,12 +116,25 @@ def test_script_handler_resume_automation(
     with mock.patch("boto3.client") as mock_client, mock.patch(
         "solution.infrastructure.ssm_automation_docs.scripts.orchestration_doc_script.datetime"
     ) as mock_datetime:
-        mock_sf = mock.Mock()
-        mock_sf.start_execution.return_value = {
+        mock_s3_client = mock.Mock()
+        mock_sts_client = mock.Mock()
+        mock_step_function_client = mock.Mock()
+
+        mock_s3_client.get_bucket_acl.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200}
+        }
+        mock_sts_client.get_caller_identity.return_value = {"Account": "123456789012"}
+        mock_step_function_client.start_execution.return_value = {
             "executionArn": "test_arn",
             "startDate": "test_date",
         }
-        mock_client.side_effect = [mock_sf, glacier_retrieval_table_mock[0]]
+
+        mock_client.side_effect = [
+            mock_step_function_client,
+            mock_s3_client,
+            mock_sts_client,
+            glacier_retrieval_table_mock[0],
+        ]
         mock_datetime.timestamp.return_value = "1630251600.123456"
 
         # sample events to pass to the handler
@@ -140,7 +167,7 @@ def test_script_handler_resume_automation(
         events["name_override_presigned_url"] = ""
         events["vault_name"] = "test_vault_name"
         # assert that the start_execution method was called with the correct arguments
-        mock_sf.start_execution.assert_called_once_with(
+        mock_step_function_client.start_execution.assert_called_once_with(
             stateMachineArn=events.pop("state_machine_arn"), input=json.dumps(events)
         )
 
@@ -191,3 +218,46 @@ def test_check_cross_region_acknowledgement_NO_modified_deployment() -> None:
         }
         with pytest.raises(ValueError) as exc:
             check_cross_region_transfer(True, "NO", "test_bucket", "test_region_2")
+
+
+def test_check_cross_account_transfer_same_account() -> None:
+    with mock.patch("boto3.client") as mock_client:
+        mock_s3_client = mock.Mock()
+        mock_sts_client = mock.Mock()
+
+        mock_s3_client.get_bucket_acl.return_value = {
+            "ResponseMetadata": {"HTTPStatusCode": 200}
+        }
+        mock_sts_client.get_caller_identity.return_value = {"Account": "123456789012"}
+
+        mock_client.side_effect = [mock_s3_client, mock_sts_client]
+        try:
+            check_cross_account_transfer("test_bucket")
+        except ValueError:
+            pytest.fail("check_cross_account_transfer() raised ValueError unexpectedly")
+
+
+def test_check_cross_account_transfer_different_account() -> None:
+    with mock.patch("boto3.client") as mock_client:
+        mock_s3_client = mock.Mock()
+        mock_sts_client = mock.Mock()
+
+        mock_s3_client.get_bucket_acl.side_effect = ClientError(
+            {
+                "Error": {
+                    "Code": "InvalidBucketOwner",
+                    "Message": "The bucket is owned by a different account.",
+                }
+            },
+            "GetBucketAcl",
+        )
+        mock_sts_client.get_caller_identity.return_value = {"Account": "123456789012"}
+
+        mock_client.side_effect = [mock_s3_client, mock_sts_client]
+
+        with pytest.raises(ValueError) as exc:
+            check_cross_account_transfer("test_bucket")
+        assert (
+            "owned by a different account, cross-account transfer is not allowed"
+            in str(exc.value)
+        )

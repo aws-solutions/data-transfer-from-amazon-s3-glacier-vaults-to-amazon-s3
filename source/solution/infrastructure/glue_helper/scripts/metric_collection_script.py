@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 import boto3
 from botocore.config import Config
 
-__boto_config__ = Config(user_agent_extra="AwsSolution/SO0293/v1.1.2")
+__boto_config__ = Config(user_agent_extra="AwsSolution/SO0293/v1.1.3")
 
 
 def update_metric_table(

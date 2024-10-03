@@ -534,7 +534,7 @@ class Workflow:
                 "ACCOUNT_ID": Aws.ACCOUNT_ID,
                 "REGION": Aws.REGION,
                 "VERSION": stack_info.scope.node.try_get_context("SOLUTION_VERSION")
-                or "v1.1.2",
+                or "v1.1.3",
                 "SOLUTION_ID": stack_info.scope.node.try_get_context("SOLUTION_ID")
                 or "SO0293",
                 "SEND_ANONYMIZED_STATISTICS": "Yes",

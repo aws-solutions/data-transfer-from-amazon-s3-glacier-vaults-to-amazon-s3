@@ -7,7 +7,8 @@ import hashlib
 import json
 import logging
 import os
-from typing import TYPE_CHECKING, Any, List, Optional
+from collections import defaultdict
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import boto3
 
@@ -36,13 +37,20 @@ class StatusMetricController:
     def __init__(self, records: List[dict[str, Any]]) -> None:
         self.counted_logs: List[str] = []
         self.records = records
-        self.requested_count = 0
-        self.staged_count = 0
-        self.downloaded_count = 0
-        self.requested_size = 0
-        self.staged_size = 0
-        self.downloaded_size = 0
+        self.workflow_run_metrics: Dict[str, Dict[str, int]] = defaultdict(
+            self._initial_metric
+        )
         self.client_request_token = self._generate_client_request_token(records)
+
+    def _initial_metric(self) -> Dict[str, int]:
+        return {
+            "requested_count": 0,
+            "requested_size": 0,
+            "staged_count": 0,
+            "staged_size": 0,
+            "downloaded_count": 0,
+            "downloaded_size": 0,
+        }
 
     def _generate_client_request_token(self, records: List[dict[str, Any]]) -> str:
         token = hashlib.sha256(json.dumps(records, sort_keys=True).encode()).hexdigest()
@@ -69,39 +77,47 @@ class StatusMetricController:
                 "dynamodb", config=__boto_config__
             )
 
-            update_expression = "ADD"
-            expression_attribute_values = {}
-            delimiter = " "
+            transact_items: List[TransactWriteItemTypeDef] = []
+            for workflow_run, metrics in self.workflow_run_metrics.items():
+                expression_attribute_values = {}
+                updates = []
 
-            for attribute_status in (
-                GlacierTransferModel.StatusCode.REQUESTED,
-                GlacierTransferModel.StatusCode.STAGED,
-                GlacierTransferModel.StatusCode.DOWNLOADED,
-            ):
-                for attribute_type in ("count", "size"):
-                    update_expression += f"{delimiter}{attribute_type}_{attribute_status} :update_{attribute_type}_{attribute_status}"
-                    delimiter = ", "
+                for attribute_status in (
+                    GlacierTransferModel.StatusCode.REQUESTED,
+                    GlacierTransferModel.StatusCode.STAGED,
+                    GlacierTransferModel.StatusCode.DOWNLOADED,
+                ):
+                    for attribute_type in ("count", "size"):
+                        attribute_key = f":update_{attribute_status}_{attribute_type}"
+                        attribute_value = str(
+                            metrics[f"{attribute_status}_{attribute_type}"]
+                        )
+                        expression_attribute_values[attribute_key] = {
+                            "N": attribute_value
+                        }
 
-                    attribute_key = f":update_{attribute_type}_{attribute_status}"
-                    attribute_value = str(
-                        getattr(self, f"{attribute_status}_{attribute_type}")
-                    )
-                    expression_attribute_values[attribute_key] = {"N": attribute_value}
+                        updates.append(
+                            f"{attribute_type}_{attribute_status} {attribute_key}"
+                        )
 
-            transact_items: List[TransactWriteItemTypeDef] = [
-                {
-                    "Update": {
-                        "TableName": os.environ[OutputKeys.METRIC_TABLE_NAME],
-                        "Key": {"pk": {"S": self.workflow_run}},
-                        "UpdateExpression": update_expression,
-                        "ExpressionAttributeValues": expression_attribute_values,
-                    },
-                }
-            ]
-            ddb_client.transact_write_items(
-                TransactItems=transact_items,
-                ClientRequestToken=self.client_request_token,
-            )
+                update_expression = ", ".join(updates)
+
+                transact_items.append(
+                    {
+                        "Update": {
+                            "TableName": os.environ[OutputKeys.METRIC_TABLE_NAME],
+                            "Key": {"pk": {"S": workflow_run}},
+                            "UpdateExpression": f"ADD {update_expression}",
+                            "ExpressionAttributeValues": expression_attribute_values,
+                        },
+                    }
+                )
+
+            if transact_items:
+                ddb_client.transact_write_items(
+                    TransactItems=transact_items,
+                    ClientRequestToken=self.client_request_token,
+                )
 
             for entry in self.counted_logs:
                 logger.info(entry)
@@ -110,7 +126,7 @@ class StatusMetricController:
         self, new_image: dict[str, Any], old_image: Optional[dict[str, Any]] = None
     ) -> None:
         new_metadata = GlacierTransferMetadata.parse(new_image)
-        self.workflow_run = new_metadata.workflow_run
+        workflow_run = new_metadata.workflow_run
 
         if new_metadata.retrieval_type != GlacierJobType.ARCHIVE_RETRIEVAL:
             return
@@ -151,15 +167,9 @@ class StatusMetricController:
             self.counted_logs.append(
                 f"Archive:{archive_id} - counted_status:{new_status}"
             )
-            setattr(
-                self,
-                f"{result_status}_count",
-                getattr(self, f"{result_status}_count") + 1,
-            )
-            setattr(
-                self,
-                f"{result_status}_size",
-                getattr(self, f"{result_status}_size") + new_metadata.size,
-            )
+            self.workflow_run_metrics[workflow_run][f"{result_status}_count"] += 1
+            self.workflow_run_metrics[workflow_run][
+                f"{result_status}_size"
+            ] += new_metadata.size
         else:
             logger.info(f"Archive:{archive_id} - unhandled_status:{new_status}")
