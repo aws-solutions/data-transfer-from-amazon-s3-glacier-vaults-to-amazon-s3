@@ -207,7 +207,7 @@ class SolutionStack(Stack):
             self,
             "DestinationBucketParameter",
             type="String",
-            description="(Required) The destination Amazon S3 bucket name",
+            description="(Required) The destination Amazon S3 bucket name. The destination Amazon S3 bucket must be in the same AWS account as the Glacier vault, cross-account transfers are not supported.",
             allowed_pattern="(?!(^xn--|^sthree-|.+-s3alias$|.+--ol-s3$))^[a-zA-Z0-9][a-zA-Z0-9-._]{1,253}[a-zA-Z0-9]$",
         )
 

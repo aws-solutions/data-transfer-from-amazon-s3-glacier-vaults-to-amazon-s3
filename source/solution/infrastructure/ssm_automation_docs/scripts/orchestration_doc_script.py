@@ -9,8 +9,9 @@ from typing import Dict
 
 import boto3
 from botocore.config import Config
+from botocore.exceptions import ClientError
 
-__boto_config__ = Config(user_agent_extra="AwsSolution/SO0293/v1.1.2")
+__boto_config__ = Config(user_agent_extra="AwsSolution/SO0293/v1.1.3")
 
 s3_storage_class_mapping: Dict[str, str] = {
     "S3 Glacier Deep Archive": "DEEP_ARCHIVE",
@@ -30,6 +31,8 @@ def script_handler(events, _context):  # type: ignore
         raise ValueError(
             "WorkflowRun is required when ProvidedInventory is set to YES."
         )
+
+    check_cross_account_transfer(events["bucket_name"])
 
     check_cross_region_transfer(
         events["allow_cross_region_data_transfer"],
@@ -111,3 +114,25 @@ def check_cross_region_transfer(allow_cross_region_data_transfer: bool, acknowle
             "or update the stack and use a destination bucket in the same region as the S3 Glacier vault. "
             "Follow the steps in the Implementation Guide to allow a destination bucket in a different region than the S3 Glacier vault."
         )
+
+
+def check_cross_account_transfer(bucket_name: str):  # type: ignore
+    s3_client = boto3.client("s3", config=__boto_config__)
+    sts_client = boto3.client("sts", config=__boto_config__)
+
+    current_account_id = sts_client.get_caller_identity()["Account"]
+
+    try:
+        s3_client.get_bucket_acl(
+            Bucket=bucket_name, ExpectedBucketOwner=current_account_id
+        )
+    except ClientError as e:
+        error_code = e.response["Error"]["Code"]
+        if error_code in ["AccessDenied", "InvalidBucketOwner"]:
+            message = f"Access denied or bucket '{bucket_name}' is owned by a different account, cross-account transfer is not allowed."
+        elif error_code == "NoSuchBucket":
+            message = f"Bucket '{bucket_name}' does not exist."
+        else:
+            message = f"Error occurred: {e}"
+
+        raise ValueError(message)
