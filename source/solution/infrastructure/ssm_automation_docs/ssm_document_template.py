@@ -18,7 +18,7 @@ class ExecuteScriptAutomationDocument:
                     "name": "runScript",
                     "action": "aws:executeScript",
                     "inputs": {
-                        "Runtime": "python3.8",
+                        "Runtime": "python3.12",
                         "Handler": None,
                         "Script": None,
                         "InputPayload": None,

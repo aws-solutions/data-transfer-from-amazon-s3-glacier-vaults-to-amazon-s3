@@ -18,7 +18,7 @@ def test_execute_script_automation_document_init() -> None:
     assert doc.document["parameters"] == None
     assert doc.document["mainSteps"][0]["name"] == "runScript"
     assert doc.document["mainSteps"][0]["action"] == "aws:executeScript"
-    assert doc.document["mainSteps"][0]["inputs"]["Runtime"] == "python3.8"
+    assert doc.document["mainSteps"][0]["inputs"]["Runtime"] == "python3.12"
     assert doc.document["mainSteps"][0]["inputs"]["Handler"] == None
     assert doc.document["mainSteps"][0]["inputs"]["Script"] == None
     assert doc.document["mainSteps"][0]["inputs"]["InputPayload"] == None
