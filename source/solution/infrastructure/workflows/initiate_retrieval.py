@@ -4,7 +4,7 @@ SPDX-License-Identifier: Apache-2.0
 """
 
 import json
-from aws_cdk import Aws, CfnElement, CfnOutput, Duration, Stack
+from aws_cdk import Aws, CfnElement, CfnOutput, Duration, Fn, Stack
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_lambda as lambda_
 from aws_cdk import aws_stepfunctions as sfn
@@ -72,6 +72,12 @@ class Workflow:
             value=stack_info.lambdas.initiate_archive_retrieval_lambda.function_name,
         )
 
+        effective_vault_account_id = Fn.condition_if(
+            stack_info.cfn_conditions.is_cross_account_vault_condition.logical_id,
+            stack_info.parameters.source_vault_account_id_parameter.value_as_string,
+            Aws.ACCOUNT_ID,
+        ).to_string()
+
         initiate_archive_retrieval_lambda_policy = iam.Policy(
             stack_info.scope,
             "InitiateArchiveRetrievalLambdaPolicy",
@@ -82,7 +88,12 @@ class Workflow:
                         "glacier:InitiateJob",
                     ],
                     resources=[
-                        f"arn:{Aws.PARTITION}:glacier:{Aws.REGION}:{Aws.ACCOUNT_ID}:vaults/*"
+                        f"arn:{Aws.PARTITION}:glacier:{Aws.REGION}:{Aws.ACCOUNT_ID}:vaults/*",
+                        Fn.join("", [
+                            f"arn:{Aws.PARTITION}:glacier:{Aws.REGION}:",
+                            effective_vault_account_id,
+                            ":vaults/*",
+                        ]),
                     ],
                 ),
             ],
@@ -99,7 +110,7 @@ class Workflow:
             lambda_function=stack_info.lambdas.initiate_archive_retrieval_lambda,
             payload=sfn.TaskInput.from_object(
                 {
-                    "AccountId": Stack.of(stack_info.scope).account,
+                    "AccountId": effective_vault_account_id,
                     "SNSTopic": stack_info.async_facilitator_topic.topic_arn,
                     "Items.$": "$.Items",
                 },

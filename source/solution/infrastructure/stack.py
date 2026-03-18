@@ -211,7 +211,7 @@ class SolutionStack(Stack):
             self,
             "DestinationBucketParameter",
             type="String",
-            description="(Required) The destination Amazon S3 bucket name. The destination Amazon S3 bucket must be in the same AWS account as the Glacier vault, cross-account transfers are not supported.",
+            description="(Required) The destination Amazon S3 bucket name.",
             allowed_pattern="(?!(^xn--|^sthree-|.+-s3alias$|.+--ol-s3$))^[a-zA-Z0-9][a-zA-Z0-9-._]{1,253}[a-zA-Z0-9]$",
         )
 
@@ -219,6 +219,26 @@ class SolutionStack(Stack):
             stack_info.parameters.destination_bucket_parameter.default = (
                 output_bucket_name_context
             )
+
+        stack_info.parameters.source_vault_account_id_parameter = CfnParameter(
+            self,
+            "SourceVaultAccountIdParameter",
+            type="String",
+            description="(Optional) The AWS account ID that owns the source Glacier vault. Defaults to the current account. Set this to enable cross-account vault access.",
+            default="",
+            allowed_pattern="^[0-9]{12}$|^$",
+        )
+
+        stack_info.cfn_conditions.is_cross_account_vault_condition = CfnCondition(
+            self,
+            "IsCrossAccountVaultCondition",
+            expression=Fn.condition_not(
+                Fn.condition_equals(
+                    stack_info.parameters.source_vault_account_id_parameter.value_as_string,
+                    "",
+                )
+            ),
+        )
 
         stack_info.parameters.enable_ddb_backup_parameter = CfnParameter(
             self,
@@ -337,7 +357,15 @@ class SolutionStack(Stack):
                 principals=[
                     iam.ServicePrincipal("glacier.amazonaws.com"),
                 ],
-                conditions={"StringEquals": {"AWS:SourceOwner": Aws.ACCOUNT_ID}},
+                conditions={
+                    "StringEquals": {
+                        "AWS:SourceOwner": Fn.condition_if(
+                            stack_info.cfn_conditions.is_cross_account_vault_condition.logical_id,
+                            stack_info.parameters.source_vault_account_id_parameter.value_as_string,
+                            Aws.ACCOUNT_ID,
+                        ),
+                    }
+                },
             )
         )
 

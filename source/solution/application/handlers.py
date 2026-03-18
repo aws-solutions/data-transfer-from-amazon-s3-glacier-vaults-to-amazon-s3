@@ -126,6 +126,7 @@ def archive_retrieval(event: dict[str, Any], _context: Any) -> None:
                 upload_id=body["UploadId"],
                 part_number=body["PartNumber"],
                 glacier_job_type=GlacierJobType.ARCHIVE_RETRIEVAL,
+                account_id=body.get("VaultAccountId", "-"),
             )
             if facilitator.transfer():
                 facilitator.send_validation_event()
@@ -173,6 +174,7 @@ def inventory_retrieval(
         upload_id=event["UploadId"],
         part_number=event["PartNumber"],
         glacier_job_type=GlacierJobType.INVENTORY_RETRIEVAL,
+        account_id=event.get("VaultAccountId", "-"),
     )
     return facilitator.transfer()
 

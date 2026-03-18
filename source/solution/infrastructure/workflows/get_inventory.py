@@ -3,7 +3,7 @@ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 """
 
-from aws_cdk import Aws, CfnElement, CfnOutput, Duration, Stack
+from aws_cdk import Aws, CfnElement, CfnOutput, Duration, Fn, Stack
 from aws_cdk import aws_iam as iam
 from aws_cdk import aws_stepfunctions as sfn
 from aws_cdk import aws_stepfunctions_tasks as tasks
@@ -104,6 +104,12 @@ class Workflow:
             value=stack_info.lambdas.initiate_inventory_retrieval_lambda.function_arn,
         )
 
+        effective_vault_account_id = Fn.condition_if(
+            stack_info.cfn_conditions.is_cross_account_vault_condition.logical_id,
+            stack_info.parameters.source_vault_account_id_parameter.value_as_string,
+            Aws.ACCOUNT_ID,
+        ).to_string()
+
         initiate_inventory_retrieval_lambda_policy = iam.Policy(
             stack_info.scope,
             "InitiateInventoryRetrievalLambdaPolicy",
@@ -114,7 +120,12 @@ class Workflow:
                         "glacier:InitiateJob",
                     ],
                     resources=[
-                        f"arn:{Aws.PARTITION}:glacier:{Aws.REGION}:{Aws.ACCOUNT_ID}:vaults/*"
+                        f"arn:{Aws.PARTITION}:glacier:{Aws.REGION}:{Aws.ACCOUNT_ID}:vaults/*",
+                        Fn.join("", [
+                            f"arn:{Aws.PARTITION}:glacier:{Aws.REGION}:",
+                            effective_vault_account_id,
+                            ":vaults/*",
+                        ]),
                     ],
                 ),
             ],
@@ -145,7 +156,7 @@ class Workflow:
             lambda_function=stack_info.lambdas.initiate_inventory_retrieval_lambda,
             payload=sfn.TaskInput.from_object(
                 {
-                    "accountId": Stack.of(stack_info.scope).account,
+                    "accountId": effective_vault_account_id,
                     "jobParameters": {
                         "Type": GlacierJobType.INVENTORY_RETRIEVAL,
                         "Format": "CSV",
@@ -371,6 +382,11 @@ class Workflow:
                     actions=["glacier:GetJobOutput"],
                     resources=[
                         f"arn:{Aws.PARTITION}:glacier:{Aws.REGION}:{Aws.ACCOUNT_ID}:vaults/*",
+                        Fn.join("", [
+                            f"arn:{Aws.PARTITION}:glacier:{Aws.REGION}:",
+                            effective_vault_account_id,
+                            ":vaults/*",
+                        ]),
                     ],
                 ),
             ],
@@ -427,6 +443,7 @@ class Workflow:
                 "UploadId.$": "$.multipart_upload_result.UploadId",
                 "PartNumber.$": "States.MathAdd($$.Map.Item.Index, 1)",
                 "WorkflowRun.$": "$.workflow_run",
+                "VaultAccountId": effective_vault_account_id,
             },
             retry=retrieve_inventory_map_retry.custom_state_params(),
         )

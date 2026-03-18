@@ -62,12 +62,14 @@ class GlacierToS3Facilitator:
         upload_id: str,
         part_number: int,
         glacier_job_type: str,
+        account_id: str = "-",
     ) -> None:
         self.glacier_client = glacier_client
         self.vault_name = vault_name
         self.workflow_run = workflow_run
         self.byte_range = byte_range
         self.glacier_object_id = glacier_object_id
+        self.account_id = account_id
 
         self.s3_destination_bucket = s3_destination_bucket
         self.s3_destination_key = s3_destination_key
@@ -121,6 +123,7 @@ class GlacierToS3Facilitator:
                 job_id,
                 self.vault_name,
                 self.byte_range,
+                self.account_id,
             )
             chunk = download.read()
         except self.glacier_client.exceptions.ResourceNotFoundException:

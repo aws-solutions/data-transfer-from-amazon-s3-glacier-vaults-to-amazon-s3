@@ -75,6 +75,7 @@ def handle_archive_job_notification(message_str: str) -> None:
     file_name = glacier_transfer_record.file_name
     storage_class = glacier_transfer_record.s3_storage_class
     vault_name = glacier_transfer_record.vault_name
+    vault_account_id = glacier_transfer_record.vault_account_id or os.environ.get("AWS_ACCOUNT_ID", "-")
     object_key = f"{workflow_run}/{file_name}"
 
     logging.info(
@@ -110,6 +111,7 @@ def handle_archive_job_notification(message_str: str) -> None:
         archive_id,
         upload_id,
         object_key,
+        vault_account_id,
     )
 
 
@@ -150,6 +152,7 @@ def send_chunk_events(
     archive_id: str,
     upload_id: str,
     object_key: str,
+    vault_account_id: str,
 ) -> None:
     chunk_sqs_url = os.environ[OutputKeys.CHUNKS_SQS_URL]
     bucket_name = os.environ[OutputKeys.OUTPUT_BUCKET_NAME]
@@ -165,6 +168,7 @@ def send_chunk_events(
             "UploadId": upload_id,
             "PartNumber": index + 1,
             "WorkflowRun": workflow_run,
+            "VaultAccountId": vault_account_id,
         }
         sqs.send_message(QueueUrl=chunk_sqs_url, MessageBody=json.dumps(message_body))
 

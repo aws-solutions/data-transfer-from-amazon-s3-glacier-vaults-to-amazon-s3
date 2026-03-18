@@ -22,11 +22,13 @@ class GlacierDownload:
         job_id: str,
         vault_name: str,
         byte_range: str,
+        account_id: str = "-",
     ) -> None:
         self.params = {
             "jobId": job_id,
             "range": f"bytes={byte_range}",
             "vaultName": vault_name,
+            "accountId": account_id,
         }
         self.response: GetJobOutputOutputTypeDef = glacier_client.get_job_output(
             **self.params

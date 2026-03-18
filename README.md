@@ -126,13 +126,54 @@ npx cdk bootstrap
     aws cloudformation describe-stacks --stack-name CDKToolkit --query "Stacks[0].Outputs[?OutputKey=='BucketName'].OutputValue" --output text`
 
 
+<details>
+<summary><strong>Same-account deployment</strong> — Glacier vault and S3 bucket are in the same AWS account</summary>
 
-   Deploy the Guidance
-   Make sure "solution" is your project name, i.e. "data-transfer-from-amazon-s3-glacier-vaults-to-amazon-s3", and DestinationBucketParameter are your newly created bucket
-
+Deploy the Guidance. Make sure "solution" is your project name, i.e. "data-transfer-from-amazon-s3-glacier-vaults-to-amazon-s3", and DestinationBucketParameter is your newly created bucket.
 
     npx cdk deploy solution --parameters DestinationBucketParameter=my-output-bucket-name
 
+Once deployed, initiate the transfer using the Systems Manager Launch document.
+
+</details>
+
+<details>
+<summary><strong>Cross-account deployment</strong> — Glacier vault is in a different AWS account than the destination S3 bucket</summary>
+
+The Guidance supports migrating archives from a Glacier vault in a different AWS account. Deploy the solution in the same account as the destination S3 bucket and provide the source vault's account ID as a CloudFormation parameter during deployment.
+
+##### 1. Set a vault access policy on the source vault
+
+In the account that owns the Glacier vault, set a vault access policy to allow the destination account to access it:
+
+    aws glacier set-vault-access-policy \
+      --account-id <SOURCE_ACCOUNT_ID> \
+      --vault-name <VAULT_NAME> \
+      --policy 'Policy="{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"arn:aws:iam::<DESTINATION_ACCOUNT_ID>:root\"},\"Action\":[\"glacier:InitiateJob\",\"glacier:GetJobOutput\"],\"Resource\":\"arn:aws:glacier:<REGION>:<SOURCE_ACCOUNT_ID>:vaults/<VAULT_NAME>\"}]}"'
+
+Replace `<DESTINATION_ACCOUNT_ID>`, `<SOURCE_ACCOUNT_ID>`, `<REGION>`, and `<VAULT_NAME>` with your values. This command must be run by a principal in the source vault account with `glacier:SetVaultAccessPolicy` permission.
+
+NOTE: The vault access policy is additive — it grants cross-account access without affecting existing access from within the source account.
+
+##### 2. Deploy the solution with the source vault account ID
+
+Make sure "solution" is your project name, i.e. "data-transfer-from-amazon-s3-glacier-vaults-to-amazon-s3". Pass the `SourceVaultAccountIdParameter` and `DestinationBucketParameter` during deployment:
+
+    npx cdk deploy solution \
+      --parameters DestinationBucketParameter=my-output-bucket-name \
+      --parameters SourceVaultAccountIdParameter=123456789012
+
+Replace `123456789012` with the 12-digit AWS account ID that owns the source Glacier vault.
+
+Replace `my-output-bucket-name' with the name of the destination S3 bucket.
+
+When `SourceVaultAccountIdParameter` is left empty (the default), the solution behaves identically to a same-account transfer.
+
+##### 3. Run the transfer
+
+Once both the vault policy and deployment are in place, initiate the transfer using the Systems Manager Launch document. The vault name refers to the vault in the source account.
+
+</details>
 
 NOTE: set context parameter `skip_integration_tests` to `false` to indicate if you want to run integration tests against the solution stack: `npx cdk deploy solution -c skip_integration_tests=false --parameters DestinationBucketParameter=my-output-bucket-name`._
 

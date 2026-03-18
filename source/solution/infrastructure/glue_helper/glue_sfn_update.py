@@ -430,6 +430,7 @@ class GlueSfnUpdate(object):
                     "--enable-job-insights": "true",
                     "--enable-continuous-cloudwatch-log": "true",
                     "--job-language": "python",
+                    "--additional-python-modules": "defusedxml",
                 }
             ),
             result_path="$.glue_start_job_result",

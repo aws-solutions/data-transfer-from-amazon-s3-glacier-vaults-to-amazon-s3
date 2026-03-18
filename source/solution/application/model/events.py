@@ -11,7 +11,7 @@ else:
     InitiateJobInputRequestTypeDef = TypedDict("MockType")
 
 
-class GlacierRetrieval(TypedDict):
+class _GlacierRetrievalRequired(TypedDict):
     JobId: str
     VaultName: str
     ByteRange: str
@@ -21,6 +21,10 @@ class GlacierRetrieval(TypedDict):
     UploadId: str
     PartNumber: int
     WorkflowRun: str
+
+
+class GlacierRetrieval(_GlacierRetrievalRequired, total=False):
+    VaultAccountId: str
 
 
 class InventoryChunkOverlap(TypedDict):

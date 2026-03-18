@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Cross-account Glacier vault migration support via `SourceVaultAccountIdParameter`
+- Glue job `defusedxml` dependency resolution for archive naming
+
 ## [1.1.4] - 2024-11-20
 
 ### BREAKING CHANGES

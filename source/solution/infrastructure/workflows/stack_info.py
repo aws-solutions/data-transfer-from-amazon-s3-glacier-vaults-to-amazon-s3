@@ -78,6 +78,7 @@ class Interfaces:
 @dataclass
 class Parameters:
     destination_bucket_parameter: CfnParameter | None = field(default=None)
+    source_vault_account_id_parameter: CfnParameter | None = field(default=None)
     enable_ddb_backup_parameter: CfnParameter | None = field(default=None)
     enable_step_function_logging_parameter: CfnParameter | None = field(default=None)
     enable_lambda_tracing_parameter: CfnParameter | None = field(default=None)
@@ -87,6 +88,7 @@ class Parameters:
 @dataclass
 class CfNConditions:
     is_gov_cn_partition_condition: CfnCondition | None = field(default=None)
+    is_cross_account_vault_condition: CfnCondition | None = field(default=None)
 
 
 @dataclass

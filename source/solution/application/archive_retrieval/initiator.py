@@ -222,6 +222,7 @@ def initiate_request(
         file_name=archive["Filename"] or archive_id,
         s3_storage_class=s3_storage_class,
         description=archive["ArchiveDescription"],
+        vault_account_id=account_id,
     )
     put_glacier_transfer_metadata(archive_metadata.marshal(), ddb_client)
 

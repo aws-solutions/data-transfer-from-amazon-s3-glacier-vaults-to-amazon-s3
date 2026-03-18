@@ -46,3 +46,6 @@ class GlacierTransferMetadata(GlacierTransferMetadataRead):
     s3_destination_key: str | None = Model.field(
         ["s3_destination_key", "S"], optional=True
     )
+    vault_account_id: str | None = Model.field(
+        ["vault_account_id", "S"], optional=True
+    )

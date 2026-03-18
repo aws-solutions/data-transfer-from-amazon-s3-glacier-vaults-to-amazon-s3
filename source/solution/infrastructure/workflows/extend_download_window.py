@@ -3,7 +3,7 @@ Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 """
 
-from aws_cdk import Aws, CfnElement, CfnOutput, Duration, Stack
+from aws_cdk import Aws, CfnElement, CfnOutput, Duration, Fn, Stack
 from aws_cdk import aws_dynamodb as dynamodb
 from aws_cdk import aws_events as eventbridge
 from aws_cdk import aws_iam as iam
@@ -133,6 +133,12 @@ class Workflow:
             value=stack_info.lambdas.extend_download_window_initiate_retrieval_lambda.function_arn,
         )
 
+        effective_vault_account_id = Fn.condition_if(
+            stack_info.cfn_conditions.is_cross_account_vault_condition.logical_id,
+            stack_info.parameters.source_vault_account_id_parameter.value_as_string,
+            Aws.ACCOUNT_ID,
+        ).to_string()
+
         extend_download_window_initiate_archive_retrieval_lambda_policy = iam.Policy(
             stack_info.scope,
             "ExtendDownloadInitiateRetrievalLambdaPolicy",
@@ -143,7 +149,12 @@ class Workflow:
                         "glacier:InitiateJob",
                     ],
                     resources=[
-                        f"arn:{Aws.PARTITION}:glacier:{Aws.REGION}:{Aws.ACCOUNT_ID}:vaults/*"
+                        f"arn:{Aws.PARTITION}:glacier:{Aws.REGION}:{Aws.ACCOUNT_ID}:vaults/*",
+                        Fn.join("", [
+                            f"arn:{Aws.PARTITION}:glacier:{Aws.REGION}:",
+                            effective_vault_account_id,
+                            ":vaults/*",
+                        ]),
                     ],
                 ),
             ],
@@ -155,7 +166,7 @@ class Workflow:
             lambda_function=stack_info.lambdas.extend_download_window_initiate_retrieval_lambda,
             payload=sfn.TaskInput.from_object(
                 {
-                    "AccountId": Stack.of(stack_info.scope).account,
+                    "AccountId": effective_vault_account_id,
                     "SNSTopic": stack_info.async_facilitator_topic.topic_arn,
                     "Items.$": "$.Items",
                 },
