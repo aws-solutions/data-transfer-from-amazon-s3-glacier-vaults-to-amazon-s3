@@ -202,6 +202,7 @@ class Workflow:
                 "--enable-job-insights": "true",
                 "--enable-continuous-cloudwatch-log": "true",
                 "--job-language": "python",
+                "--additional-python-modules": "defusedxml>=0.7.1",
             },
         )
 
