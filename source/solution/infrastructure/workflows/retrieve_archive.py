@@ -37,7 +37,7 @@ class Workflow:
             stack_info.parameters.enable_lambda_tracing_parameter.value_as_string,
             handler="solution.application.handlers.archive_retrieval",
             code=stack_info.lambda_source,
-            memory_size=1536,
+            memory_size=3072,
             timeout=Duration.minutes(15),
             description="Lambda to retrieve chunks from Glacier, upload them to S3 and generate file checksums.",
             environment={

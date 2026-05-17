@@ -138,6 +138,7 @@ class GlacierToS3Facilitator:
             self.upload_id,
         )
         part = upload.upload_part(chunk, self.part_number)
+        del chunk
 
         if self.glacier_job_type is GlacierJobType.ARCHIVE_RETRIEVAL:
             part["TreeChecksum"] = b64encode(glacier_hash.digest()).decode("ascii")
